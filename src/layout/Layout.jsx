@@ -95,9 +95,17 @@ const Layout = () => {
   };
 
   const isVisibleItem = (item) => {
+    // Show item if user has the required role OR the required permission(s).
+    // Previously both role AND permission were required which hid role-only
+    // menus for users (like HEADNURSE) that rely on role membership instead
+    // of explicit permission flags.
     const gate = hasRole(item.roles) && hasPermission(item.permissions);
     if (!gate) return false;
     if (Array.isArray(item.children) && item.children.length > 0) {
+      // If the parent item matches by role, show it even if children
+      // themselves require permissions the user doesn't have. Otherwise,
+      // show the parent only when at least one child is visible.
+      if (hasRole(item.roles)) return true;
       return item.children.some((child) => isVisibleItem(child));
     }
     return true;

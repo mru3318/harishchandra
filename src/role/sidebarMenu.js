@@ -240,18 +240,58 @@ export const sidebarMenu = [
     children: [
       {
         title: "Add New Bed",
-        path: "/dashboard/add-new-bed",
+        path: "/dashboard/add-beds",
         permissions: ["BED_ADD"],
       },
       {
         title: "Add new Room",
-        path: "/dashboard/add-new-room",
+        path: "/dashboard/add-room",
         permissions: ["ROOM_ADD"],
       },
       {
         title: "Manage Beds",
-        path: "/dashboard/view-beds",
+        path: "/dashboard/bed-list",
         permissions: ["BED_LIST", "BED_VACANT", "BED_ASSIGN", "BED_RELEASE"],
+      },
+    ],
+  },
+
+  // Head Nurse Menu (role-specific quick links)
+  {
+    title: "Head Nurse",
+    icon: "fa fa-user-nurse",
+    collapseId: "headnurse-menu",
+    roles: ["HEADNURSE"],
+    children: [
+      {
+        title: "Manage Beds",
+        path: "/dashboard/bed-list",
+        permissions: ["BED_LIST", "BED_VACANT"],
+      },
+      {
+        title: "Add New Bed",
+        path: "/dashboard/add-beds",
+        permissions: ["BED_ADD"],
+      },
+      {
+        title: "Add new Room",
+        path: "/dashboard/add-room",
+        permissions: ["ROOM_ADD"],
+      },
+      {
+        title: "Allotted Beds",
+        path: "/dashboard/allotted-beds",
+        permissions: ["BED_ASSIGN", "BED_RELEASE"],
+      },
+      {
+        title: "IPD Patients",
+        path: "/dashboard/ipd/view-patients",
+        permissions: ["PATIENT_LIST"],
+      },
+      {
+        title: "OPD Patients",
+        path: "/dashboard/opd/view-patients",
+        permissions: ["PATIENT_LIST"],
       },
     ],
   },
@@ -542,7 +582,7 @@ export const sidebarMenu = [
     children: [
       {
         title: "System Settings",
-        path: "/dashboard/system-settings",
+        path: "/dashboard/settings",
         permissions: ["SYSTEM_SETTINGS_MANAGE"],
       },
     ],
