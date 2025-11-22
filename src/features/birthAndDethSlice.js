@@ -1,5 +1,5 @@
 import { createSlice, createAsyncThunk } from "@reduxjs/toolkit";
-import { API_BASE_URL } from "../../config";
+const API_BASE_URL = import.meta.env.VITE_API_BASE_URL;
 
 // Fetch all mothers from IPD birth-report endpoint
 export const fetchMothers = createAsyncThunk(

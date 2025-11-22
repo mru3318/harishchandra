@@ -117,58 +117,66 @@ const Layout = () => {
       .replace(/[^a-z0-9]+/g, "-")
       .replace(/(^-|-$)/g, "");
 
-  const renderChildren = (children, parentId) => {
+  const renderChildren = (children, parentId, parentRoles) => {
     return (
       <ul className="nav flex-column sub-menu">
-        {children.filter(isVisibleItem).map((child) => {
-          const hasKids =
-            Array.isArray(child.children) && child.children.length > 0;
-          if (hasKids) {
-            const nestedId =
-              child.collapseId || `${parentId}-${slug(child.title)}`;
+        {children
+          .filter((child) => isVisibleItem(child) || hasRole(parentRoles))
+          .map((child) => {
+            const hasKids =
+              Array.isArray(child.children) && child.children.length > 0;
+            if (hasKids) {
+              const nestedId =
+                child.collapseId || `${parentId}-${slug(child.title)}`;
+              return (
+                <li key={nestedId} className="nav-item">
+                  <a
+                    className="nav-link"
+                    data-bs-toggle="collapse"
+                    data-bs-target={`#${nestedId}`}
+                    aria-expanded="false"
+                    aria-controls={nestedId}
+                  >
+                    {child.title}
+                  </a>
+                  <ul
+                    className="flex-column sub-menu collapse"
+                    id={nestedId}
+                    style={{ listStyle: "none" }}
+                  >
+                    {child.children
+                      .filter(
+                        (g) =>
+                          isVisibleItem(g) ||
+                          hasRole(child.roles || parentRoles)
+                      )
+                      .map((g) => (
+                        <li key={`${nestedId}-${slug(g.title)}`}>
+                          {g.path ? (
+                            <NavLink to={g.path} className="nav-link">
+                              {g.title}
+                            </NavLink>
+                          ) : (
+                            <span className="nav-link">{g.title}</span>
+                          )}
+                        </li>
+                      ))}
+                  </ul>
+                </li>
+              );
+            }
             return (
-              <li key={nestedId} className="nav-item">
-                <a
-                  className="nav-link"
-                  data-bs-toggle="collapse"
-                  data-bs-target={`#${nestedId}`}
-                  aria-expanded="false"
-                  aria-controls={nestedId}
-                >
-                  {child.title}
-                </a>
-                <ul
-                  className="flex-column sub-menu collapse"
-                  id={nestedId}
-                  style={{ listStyle: "none" }}
-                >
-                  {child.children.filter(isVisibleItem).map((g) => (
-                    <li key={`${nestedId}-${slug(g.title)}`}>
-                      {g.path ? (
-                        <NavLink to={g.path} className="nav-link">
-                          {g.title}
-                        </NavLink>
-                      ) : (
-                        <span className="nav-link">{g.title}</span>
-                      )}
-                    </li>
-                  ))}
-                </ul>
+              <li key={`${parentId}-${slug(child.title)}`} className="nav-item">
+                {child.path ? (
+                  <NavLink className="nav-link" to={child.path}>
+                    {child.title}
+                  </NavLink>
+                ) : (
+                  <span className="nav-link">{child.title}</span>
+                )}
               </li>
             );
-          }
-          return (
-            <li key={`${parentId}-${slug(child.title)}`} className="nav-item">
-              {child.path ? (
-                <NavLink className="nav-link" to={child.path}>
-                  {child.title}
-                </NavLink>
-              ) : (
-                <span className="nav-link">{child.title}</span>
-              )}
-            </li>
-          );
-        })}
+          })}
       </ul>
     );
   };

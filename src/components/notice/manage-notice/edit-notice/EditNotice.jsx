@@ -7,7 +7,7 @@ import {
   fetchNotices,
   updateNotice,
 } from "../../../../features/noticeSlice";
-import { API_BASE_URL } from "../../../../../config";
+const API_BASE_URL = import.meta.env.VITE_API_BASE_URL;
 
 export default function EditNotice() {
   const [filePreview, setFilePreview] = useState(null);

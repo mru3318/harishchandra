@@ -10,9 +10,9 @@ import {
 import Swal from "sweetalert2";
 import { NavLink } from "react-router-dom";
 import axios from "axios";
-import { API_BASE_URL } from "../../../../../config";
 
 const ViewNotices = () => {
+  const API_BASE_URL = import.meta.env.VITE_API_BASE_URL;
   const dispatch = useDispatch();
   const notices = useSelector(selectNotices);
   const fetchStatus = useSelector(selectNoticesFetchStatus);

@@ -1,5 +1,6 @@
 import { createSlice, createAsyncThunk } from "@reduxjs/toolkit";
 import axios from "axios";
+import { getToken, removeToken } from "../utils/authToken";
 // import { API_BASE_URL } from "../../config";
 
 const API_BASE_URL = import.meta.env.VITE_API_BASE_URL;
@@ -68,23 +69,36 @@ export const initializeAuth = createAsyncThunk(
   "auth/initialize",
   async (_, { fulfillWithValue }) => {
     if (typeof window === "undefined") return fulfillWithValue(null);
-    // Prefer structured 'auth' object
-    const raw = localStorage.getItem("auth");
-    if (raw) {
+
+    const token = getToken(); // 👈 Common JWT function
+    const raw = localStorage.getItem("auth"); // user info
+
+    if (token && raw) {
       try {
         const parsed = JSON.parse(raw);
-        const { token, user, roles, permissions, exp } = parsed || {};
+        const { user, roles, permissions, exp } = parsed || {};
         const now = Date.now();
-        if (!token || (exp && now > exp)) {
+
+        if (exp && now > exp) {
+          removeToken();
           localStorage.removeItem("auth");
           return fulfillWithValue(null);
         }
-        if (axios?.defaults?.headers) {
-          axios.defaults.headers.common["Authorization"] = `Bearer ${token}`;
-        }
-        return fulfillWithValue({ token, user, roles, permissions, exp });
-      } catch {
+
+        axios.defaults.headers.common["Authorization"] = `Bearer ${token}`;
+
+        return fulfillWithValue({
+          token,
+          user,
+          roles,
+          permissions,
+          exp,
+        });
+      } catch (error) {
+        console.error("Auth initialization failed:", error);
+        removeToken();
         localStorage.removeItem("auth");
+        return fulfillWithValue(null); // Ensure proper state reset
       }
     }
 

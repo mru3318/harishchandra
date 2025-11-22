@@ -1,6 +1,5 @@
 import React, { useEffect, useState } from "react";
 import axios from "axios";
-import { API_BASE_URL } from "../../../../config";
 import { useDispatch, useSelector } from "react-redux";
 import {
   fetchPatients,
@@ -14,6 +13,7 @@ import {
 } from "../../../features/commanSlice";
 import { createAppointment } from "../../../features/appointmentSlice";
 import Swal from "sweetalert2";
+const API_BASE_URL = import.meta.env.VITE_API_BASE_URL;
 
 export default function AddPatientAppointment() {
   const dispatch = useDispatch();
