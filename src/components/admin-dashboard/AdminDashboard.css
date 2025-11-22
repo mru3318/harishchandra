@@ -1,0 +1,193 @@
+.header-toolbar {
+  background-color: #fff;
+  box-shadow: 0 2px 4px rgba(0, 0, 0, 0.1);
+  padding: 1rem 1.5rem;
+}
+
+.jumbotron-hero {
+  background: linear-gradient(135deg, #01b6be, #4e77fd);
+  color: #fff;
+
+  padding: 30px;
+  margin-top: 0px;
+  position: relative;
+  overflow: hidden;
+}
+
+.jumbotron-hero .card-container {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 15px;
+  margin-top: 20px;
+}
+
+.jumbotron-hero .card-hero {
+  background-color: rgba(255, 255, 255, 0.2);
+  z-index: 10;
+  padding: 15px;
+  display: flex;
+  align-items: left;
+  width: calc(24% - 10px);
+  min-width: 150px;
+}
+
+.jumbotron-hero .card-hero .icon-box {
+  width: 45px;
+  height: 45px;
+
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  margin-right: 10px;
+  color: #fff;
+}
+
+.card-hero .icon-box.new-patient {
+  background-color: #5cb85c;
+}
+.card-hero .icon-box.surgeries {
+  background-color: #5bc0de;
+}
+.card-hero .icon-box.discharge {
+  background-color: #f0ad4e;
+}
+
+.jumbotron-hero .illustration {
+  position: absolute;
+  right: 0;
+  bottom: 0;
+  width: 350px;
+  opacity: 1;
+  pointer-events: none;
+}
+
+.analytics-card {
+  background-color: #fff;
+  box-shadow: 0 4px 6px rgba(0, 0, 0, 0.1);
+  padding: 20px;
+  margin-top: 20px;
+}
+
+.analytics-card .icon-box {
+  width: 50px;
+  height: 50px;
+  border-radius: 10px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+
+.analytics-card .icon-box.green {
+  background-color: #e6f7e9;
+  color: #38b04a;
+}
+.analytics-card .icon-box.blue {
+  background-color: #e6f2ff;
+  color: #1e90ff;
+}
+.analytics-card .icon-box.pink {
+  background-color: #ffe6e6;
+  color: #d9534f;
+}
+.analytics-card .icon-box.yellow {
+  background-color: #fff8e1;
+  color: #ffc107;
+}
+
+.card-footer-analytics {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  margin-top: 15px;
+  font-size: 0.9em;
+}
+
+.view-all-link {
+  color: #007bff;
+  text-decoration: none;
+  font-weight: 500;
+}
+.make-appoint {
+  color: #007bff;
+  text-decoration: none;
+  font-weight: 500;
+}
+.make-appoint:hover {
+  background-color: #007bff;
+  color: #f6f8f9;
+  text-decoration: none;
+  font-weight: 500;
+}
+
+.percentage-change {
+  color: #5cb85c;
+  font-weight: 600;
+}
+
+/* Responsive adjustments for smaller screens */
+@media (max-width: 768px) {
+  .jumbotron-hero .illustration {
+    display: none;
+  }
+
+  .jumbotron-hero .card-hero {
+    width: 100%;
+  }
+}
+
+/*hover-effect*/
+
+/* General analytics cards hover */
+.analytics-card {
+  transition: all 0.3s ease-in-out;
+  cursor: pointer;
+}
+
+.analytics-card:hover {
+  transform: translateY(-6px); /* lift effect */
+  box-shadow: 0 8px 20px rgba(0, 0, 0, 0.12); /* deeper shadow */
+}
+
+/* On click/active */
+.analytics-card:active {
+  transform: scale(0.98); /* subtle press down */
+  box-shadow: 0 4px 12px rgba(0, 0, 0, 0.2);
+}
+
+/* For inner earning boxes */
+.analytics-card .border {
+  transition: all 0.3s ease-in-out;
+}
+
+.analytics-card .border:hover {
+  background-color: #f9f9f9; /* subtle bg highlight */
+  transform: translateY(-3px);
+  box-shadow: 0 4px 10px rgba(0, 0, 0, 0.1);
+}
+
+.analytics-card .border:active {
+  transform: scale(0.97);
+}
+
+/* Default: auto height for mobile & tablet */
+.hospital-earnings {
+  border-radius: 1px;
+}
+
+/* Desktop: fix height to 440px */
+@media (min-width: 992px) {
+  .hospital-earnings {
+    height: 340px;
+  }
+}
+
+.notice-header-tools {
+  display: flex;
+  align-items: center;
+  gap: 10px; /* space between badge and link */
+  flex-wrap: nowrap; /* prevent wrapping */
+}
+
+.notice-header-tools a {
+  white-space: nowrap; /* keep "View All »" on same line */
+}
