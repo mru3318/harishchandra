@@ -85,3 +85,31 @@ input:focus {
     font-size: 13px;
   }
 }
+
+/* Password visibility toggle inside input */
+.password-input-wrapper {
+  position: relative;
+}
+.password-input-wrapper input {
+  padding-right: 44px; /* space for the eye icon */
+}
+.password-toggle {
+  position: absolute;
+  right: 8px;
+  top: 50%;
+  transform: translateY(-50%);
+  background: transparent;
+  border: none;
+  padding: 4px 6px;
+  color: #6c757d;
+  cursor: pointer;
+  font-size: 16px;
+}
+.password-toggle:focus {
+  outline: none;
+  box-shadow: none;
+}
+
+.btn:hover {
+  background-color: #01aab3;
+}

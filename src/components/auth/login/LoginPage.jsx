@@ -17,6 +17,7 @@ const LoginPage = () => {
   const [successMessage, setSuccessMessage] = useState(
     location.state?.message || ""
   );
+  const [showPassword, setShowPassword] = useState(false);
 
   // Redirect to dashboard when authenticated
   useEffect(() => {
@@ -145,14 +146,34 @@ const LoginPage = () => {
                   />
                 </div>
 
-                {/* Password Field */}
+                {/* Password Field with visibility toggle */}
                 <div className="mb-3">
-                  <Field
-                    type="password"
-                    name="password"
-                    className="form-control"
-                    placeholder="Password"
-                  />
+                  <Field name="password">
+                    {({ field }) => (
+                      <div className="password-input-wrapper">
+                        <input
+                          {...field}
+                          type={showPassword ? "text" : "password"}
+                          className="form-control"
+                          placeholder="Password"
+                        />
+                        <button
+                          type="button"
+                          className="password-toggle"
+                          onClick={() => setShowPassword((s) => !s)}
+                          aria-label={
+                            showPassword ? "Hide password" : "Show password"
+                          }
+                        >
+                          <i
+                            className={`fa ${
+                              showPassword ? "fa-eye-slash" : "fa-eye"
+                            }`}
+                          />
+                        </button>
+                      </div>
+                    )}
+                  </Field>
                   <ErrorMessage
                     name="password"
                     component="div"

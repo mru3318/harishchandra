@@ -518,18 +518,24 @@ export const sidebarMenu = [
     ],
   },
 
-  //Pharmacy Management Menu
+  // Pharmacy Management Menu (was a single link — make it collapsible with children)
   {
     title: "Pharmacy",
     icon: "fa fa-pills",
-    path: "/dashboard/pharmacy-management",
+    collapseId: "pharmacy-menu",
     roles: ["SUPER_ADMIN", "ADMIN", "PHARMACIST"],
-    permissions: [
-      "MEDICINE_ADD",
-      "MEDICINE_UPDATE",
-      "MEDICINE_STOCK_VIEW",
-      "PRESCRIPTION_DISPENSE",
-      "PHARMACY_BILL_GENERATE",
+    children: [
+      {
+        title: "Pharmacy Module",
+        path: "/dashboard/pharmacy-module",
+        permissions: [
+          "MEDICINE_ADD",
+          "MEDICINE_UPDATE",
+          "MEDICINE_STOCK_VIEW",
+          "PRESCRIPTION_DISPENSE",
+          "PHARMACY_BILL_GENERATE",
+        ],
+      },
     ],
   },
 
