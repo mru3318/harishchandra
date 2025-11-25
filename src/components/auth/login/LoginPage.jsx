@@ -7,7 +7,7 @@ import * as Yup from "yup";
 import "./LoginPage.css";
 
 const LoginPage = () => {
-  const [successMsg, setSuccessMsg] = useState("");
+  // removed transient inline success popup to avoid flash on redirect
   const [serverError, setServerError] = useState("");
   const dispatch = useDispatch();
   const navigate = useNavigate();
@@ -39,23 +39,23 @@ const LoginPage = () => {
       ),
   });
 
-  useEffect(() => {
-    if (successMessage) {
-      // Start fading out after 3 seconds
-      const fadeTimer = setTimeout(() => setFade(true), 3000);
+  // useEffect(() => {
+  //   if (successMessage) {
+  //     // Start fading out after 3 seconds
+  //     const fadeTimer = setTimeout(() => setFade(true), 3000);
 
-      // Remove message completely after fade animation
-      const removeTimer = setTimeout(() => {
-        setSuccessMessage("");
-        window.history.replaceState({}, document.title); // Clean URL state
-      }, 4000);
+  //     // Remove message completely after fade animation
+  //     const removeTimer = setTimeout(() => {
+  //       setSuccessMessage("");
+  //       window.history.replaceState({}, document.title); // Clean URL state
+  //     }, 4000);
 
-      return () => {
-        clearTimeout(fadeTimer);
-        clearTimeout(removeTimer);
-      };
-    }
-  }, [successMessage]);
+  //     return () => {
+  //       clearTimeout(fadeTimer);
+  //       clearTimeout(removeTimer);
+  //     };
+  //   }
+  // }, [successMessage]);
 
   return (
     <div className="d-flex flex-column flex-md-row vh-100">
@@ -98,11 +98,8 @@ const LoginPage = () => {
                 );
 
                 if (res.meta && res.meta.requestStatus === "fulfilled") {
-                  setSuccessMsg("Login successful! Redirecting...");
-                  setTimeout(
-                    () => navigate("/dashboard", { replace: true }),
-                    800
-                  );
+                  // successful login — navigate to dashboard
+                  navigate("/dashboard", { replace: true });
                 } else {
                   // Handle 401 or invalid credentials gracefully
                   const errMsg =
@@ -116,7 +113,8 @@ const LoginPage = () => {
 
                   setFieldError("password", errMsg);
                 }
-              } catch (err) {
+              } catch (error) {
+                console.error("Login error:", error);
                 setServerError("Something went wrong. Please try again later.");
               } finally {
                 setSubmitting(false);
@@ -183,18 +181,7 @@ const LoginPage = () => {
             )}
           </Formik>
 
-          {/* Success Message */}
-          {successMsg && (
-            <div className="success-popup text-center mt-3">
-              <p>{successMsg}</p>
-              <button
-                className="btn btn-success btn-sm"
-                onClick={() => setSuccessMsg("")}
-              >
-                OK
-              </button>
-            </div>
-          )}
+          {/* Success message removed to prevent brief flash before navigation */}
         </div>
       </div>
     </div>
