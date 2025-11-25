@@ -6,7 +6,9 @@ import {
   selectCurrentUser,
   selectAuthRoles,
   selectAuthPermissions,
+  selectAuthExpiry,
 } from "../features/authSlice";
+import useSessionTimeout from "../hooks/useSessionTimeout";
 import "./Layout.css";
 import RoleSelector from "../components/role-dashboards/RoleSelector";
 import sidebarMenu from "../role/sidebarMenu";
@@ -21,6 +23,10 @@ const Layout = () => {
   const currentUser = useSelector(selectCurrentUser);
   const authRoles = useSelector(selectAuthRoles);
   const permissions = useSelector(selectAuthPermissions);
+  const expiry = useSelector(selectAuthExpiry);
+
+  // run session timeout hook here so it has Router context (useNavigate)
+  useSessionTimeout(expiry);
   const SHOW_LEGACY_SIDEBAR = false;
   // console.log("Current User in Layout:", currentUser);
   const handleToggleSafe = (key) => {
@@ -1071,7 +1077,7 @@ const Layout = () => {
                         </NavLink>
                       </li>
                       <li className="nav-item">
-                        <NavLink className="nav-link" to="blood-stock">
+                        <NavLink className="nav-link" to="manage-blood-stock">
                           Manage Blood Stock
                         </NavLink>
                       </li>

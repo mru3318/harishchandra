@@ -458,7 +458,7 @@ export const sidebarMenu = [
     children: [
       {
         title: "Add Donor",
-        path: "/dashboard/add-donor",
+        path: "/dashboard/add-new-donor",
         permissions: ["DONOR_ADD"],
       },
       {

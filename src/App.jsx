@@ -31,7 +31,7 @@ import AddNewDonor from "./components/blood-bank/add-new-donor/AddNewDonor";
 import ManageDonor from "./components/blood-bank/manage-donor/ManageDonor";
 import AddBloodStock from "./components/blood-bank/add-stock/AddBloodStock";
 import BloodStock from "./components/blood-bank/blood-stock/BloodStock";
-import AddDonor from "./components/blood-bank/add-donor/AddDonor";
+import AddDonor from "./components/blood-bank/add-new-donor/AddNewDonor.jsx";
 import BabyBirthCertificate from "./components/reports/baby-birth-certificate/BabyBirthCertificate";
 import DeathCertificateForm from "./components/reports/deth-certificate/DeathCertificateForm";
 import ManageBirthCertificates from "./components/reports/manage-birth-certificates/ManageBirthCertificates";
@@ -64,10 +64,17 @@ import {
   selectAuthRoles,
   selectAuthPermissions,
   selectAuthExpiry,
-  selectIsAuthenticated,
-  logout,
+  // selectIsAuthenticated,
+  // logout,
 } from "./features/authSlice.js";
 import ViewDoctor from "./components/doctor/view-doctor/ViewDoctor.jsx";
+import useSessionTimeout from "./hooks/useSessionTimeout.js";
+
+function SessionManager() {
+  const exp = useSelector(selectAuthExpiry);
+  useSessionTimeout(exp);
+  return null; // no UI, just runs the hook
+}
 
 function App() {
   const dispatch = useDispatch();
@@ -75,54 +82,54 @@ function App() {
   const roles = useSelector(selectAuthRoles);
   const permissions = useSelector(selectAuthPermissions);
 
-  const expiresAt = useSelector(selectAuthExpiry);
-  const isAuthenticated = useSelector(selectIsAuthenticated);
-  const expiryAlertShownRef = React.useRef(false);
+  // const expiresAt = useSelector(selectAuthExpiry);
+  // const isAuthenticated = useSelector(selectIsAuthenticated);
+  // const expiryAlertShownRef = React.useRef(false);
 
-  useEffect(() => {
-    if (!expiresAt || expiryAlertShownRef.current) return;
+  // useEffect(() => {
+  //   if (!expiresAt || expiryAlertShownRef.current) return;
 
-    // normalize stored expiry (seconds or ms) to ms
-    const rawExp = expiresAt;
-    const expMs = rawExp < 1e12 ? rawExp * 1000 : rawExp;
-    if (expMs < Date.now()) {
-      expiryAlertShownRef.current = true;
-      dispatch(logout());
+  //   // normalize stored expiry (seconds or ms) to ms
+  //   const rawExp = expiresAt;
+  //   const expMs = rawExp < 1e12 ? rawExp * 1000 : rawExp;
+  //   if (expMs < Date.now()) {
+  //     expiryAlertShownRef.current = true;
+  //     dispatch(logout());
 
-      Swal.fire({
-        icon: "warning",
-        title: "Session Expired",
-        html: `
-          <p>Your session has expired. You will be redirected in <b><span id="countdown">6</span></b> seconds.</p>
-          <button id="loginBtn" class="swal2-confirm swal2-styled" style="background-color:#01c0c8;margin-top:10px;">
-            Login Again
-          </button>
-        `,
-        showConfirmButton: false,
-        allowOutsideClick: false,
-        didOpen: () => {
-          let seconds = 6;
-          const countdownEl = document.getElementById("countdown");
-          const interval = setInterval(() => {
-            seconds--;
-            if (countdownEl) countdownEl.textContent = seconds;
-            if (seconds <= 0) {
-              clearInterval(interval);
-              window.location.href = "/";
-            }
-          }, 1000);
+  //     Swal.fire({
+  //       icon: "warning",
+  //       title: "Session Expired",
+  //       html: `
+  //         <p>Your session has expired. You will be redirected in <b><span id="countdown">6</span></b> seconds.</p>
+  //         <button id="loginBtn" class="swal2-confirm swal2-styled" style="background-color:#01c0c8;margin-top:10px;">
+  //           Login Again
+  //         </button>
+  //       `,
+  //       showConfirmButton: false,
+  //       allowOutsideClick: false,
+  //       didOpen: () => {
+  //         let seconds = 6;
+  //         const countdownEl = document.getElementById("countdown");
+  //         const interval = setInterval(() => {
+  //           seconds--;
+  //           if (countdownEl) countdownEl.textContent = seconds;
+  //           if (seconds <= 0) {
+  //             clearInterval(interval);
+  //             window.location.href = "/";
+  //           }
+  //         }, 1000);
 
-          const loginBtn = document.getElementById("loginBtn");
-          if (loginBtn) {
-            loginBtn.addEventListener("click", () => {
-              clearInterval(interval);
-              window.location.href = "/";
-            });
-          }
-        },
-      });
-    }
-  }, [expiresAt, isAuthenticated, dispatch]);
+  //         const loginBtn = document.getElementById("loginBtn");
+  //         if (loginBtn) {
+  //           loginBtn.addEventListener("click", () => {
+  //             clearInterval(interval);
+  //             window.location.href = "/";
+  //           });
+  //         }
+  //       },
+  //     });
+  //   }
+  // }, [expiresAt, isAuthenticated, dispatch]);
 
   useEffect(() => {
     console.log("Dispatching hydrateAuth...");
@@ -294,12 +301,8 @@ function App() {
           element: <AddBloodStock />,
         },
         {
-          path: "blood-stock",
+          path: "manage-blood-stock",
           element: <BloodStock />,
-        },
-        {
-          path: "add-donor",
-          element: <AddDonor />,
         },
 
         //reports routes here
@@ -398,7 +401,9 @@ function App() {
   return (
     <RoleProvider>
       <GlobalSpinner />
-      <RouterProvider router={router} />
+      <RouterProvider router={router}>
+        <SessionManager />
+      </RouterProvider>
     </RoleProvider>
   );
 }
