@@ -1,6 +1,5 @@
 import { createBrowserRouter, RouterProvider } from "react-router-dom";
 import Layout from "./layout/Layout";
-import AddDoctor from "./components/add-doctor/AddDoctor";
 import { RoleProvider } from "./role/RoleContext";
 import GlobalSpinner from "./components/spinner/GlobalSpinner";
 import DashboardWrapper from "./components/role-dashboards/DashboardWrapper";
@@ -68,6 +67,7 @@ import {
   selectIsAuthenticated,
   logout,
 } from "./features/authSlice.js";
+import ViewDoctor from "./components/doctor/view-doctor/ViewDoctor.jsx";
 
 function App() {
   const dispatch = useDispatch();
@@ -162,10 +162,18 @@ function App() {
           index: true,
           element: <DashboardWrapper />,
         },
+        // Doctor Management Routes
+
         {
-          path: "add-doctor",
-          element: <AddDoctor />,
+          path: "view-doctors",
+          element: <ViewDoctor />,
         },
+        {
+          path: "view-doctor-shedule",
+          element: <DoctorScheduleList />,
+        },
+
+        // Human Resorces Routes
         {
           path: "add-new-employee",
           element: <EmployeeRegistration />,

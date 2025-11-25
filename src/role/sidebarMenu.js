@@ -40,12 +40,12 @@ export const sidebarMenu = [
     children: [
       {
         title: "Add Department",
-        path: "/dashboard/add-new-department",
+        path: "/dashboard/add-department",
         permissions: ["DEPARTMENT_ADD"],
       },
       {
         title: "Manage Departments",
-        path: "/dashboard/manage-departments",
+        path: "/dashboard/manage-department",
         permissions: [
           "DEPARTMENT_VIEW",
           "DEPARTMENT_UPDATE",
@@ -74,7 +74,7 @@ export const sidebarMenu = [
     ],
     children: [
       {
-        title: "View Doctors",
+        title: "View Doctor",
         path: "/dashboard/view-doctors",
         permissions: [
           "DOCTOR_LIST",
@@ -84,12 +84,12 @@ export const sidebarMenu = [
       },
       {
         title: "Add Schedule",
-        path: "/dashboard/add-schedule",
+        path: "/dashboard/add-doctor-schedule",
         permissions: ["SCHEDULE_ADD"],
       },
       {
         title: "View Schedule",
-        path: "/dashboard/view-schedule",
+        path: "/dashboard/view-doctor-shedule",
         permissions: ["SCHEDULE_LIST", "SCHEDULE_UPDATE", "SCHEDULE_DELETE"],
       },
     ],
@@ -104,13 +104,13 @@ export const sidebarMenu = [
     children: [
       {
         title: "Add Appointment",
-        path: "/dashboard/add-appointment",
+        path: "/dashboard/add-patient-appointment",
         permissions: ["APPOINTMENT_ADD"],
       },
 
       {
         title: "Manage Appointments",
-        path: "/dashboard/manage-appointments",
+        path: "/dashboard/view-patient-appointments",
         permissions: [
           "APPOINTMENT_LIST",
           "APPOINTMENT_DELETE",
@@ -256,46 +256,6 @@ export const sidebarMenu = [
     ],
   },
 
-  // Head Nurse Menu (role-specific quick links)
-  {
-    title: "Head Nurse",
-    icon: "fa fa-user-nurse",
-    collapseId: "headnurse-menu",
-    roles: ["HEADNURSE"],
-    children: [
-      {
-        title: "Manage Beds",
-        path: "/dashboard/bed-list",
-        permissions: ["BED_LIST", "BED_VACANT"],
-      },
-      {
-        title: "Add New Bed",
-        path: "/dashboard/add-beds",
-        permissions: ["BED_ADD"],
-      },
-      {
-        title: "Add new Room",
-        path: "/dashboard/add-room",
-        permissions: ["ROOM_ADD"],
-      },
-      {
-        title: "Allotted Beds",
-        path: "/dashboard/allotted-beds",
-        permissions: ["BED_ASSIGN", "BED_RELEASE"],
-      },
-      {
-        title: "IPD Patients",
-        path: "/dashboard/ipd/view-patients",
-        permissions: ["PATIENT_LIST"],
-      },
-      {
-        title: "OPD Patients",
-        path: "/dashboard/opd/view-patients",
-        permissions: ["PATIENT_LIST"],
-      },
-    ],
-  },
-
   // Invoice and Finance Management Menu
   {
     title: "Finance",
@@ -382,33 +342,33 @@ export const sidebarMenu = [
     children: [
       {
         title: "Add Birth Report",
-        path: "/dashboard/add-birth-report",
+        path: "/dashboard/baby-birth-certificate",
         permissions: ["BIRTH_REPORT_ADD"],
       },
       {
         title: "Manage Birth Reports",
-        path: "/dashboard/manage-birth-reports",
+        path: "/dashboard/manage-birth-certificates",
         permissions: ["REPORT_LIST"],
       },
       {
         title: "Add Death Report",
-        path: "/dashboard/add-death-report",
+        path: "/dashboard/death-certificate",
         permissions: ["DEATH_REPORT_ADD"],
       },
       {
         title: "Manage Death Reports",
-        path: "/dashboard/manage-death-reports",
+        path: "/dashboard/manage-death-certificates",
         permissions: ["REPORT_LIST"],
       },
 
       {
         title: "Add Lab Report",
-        path: "/dashboard/add-lab-report",
+        path: "/dashboard/add-pathology-report",
         permissions: ["PATHLAB_REPORT_ADD", "RADIOLOGY_REPORT_ADD"],
       },
       {
         title: "Manage Lab Reports",
-        path: "/dashboard/manage-lab-reports",
+        path: "/dashboard/manage-pathology-reports",
         permissions: [
           "LAB_REPORT_LIST",
           "PATHLAB_REPORT_MANAGE",
@@ -427,7 +387,7 @@ export const sidebarMenu = [
     children: [
       {
         title: "Add Prescription",
-        path: "/dashboard/add-prescription",
+        path: "/dashboard/add-new-prescription",
         permissions: ["PRESCRIPTION_ADD"],
       },
       {
@@ -468,7 +428,7 @@ export const sidebarMenu = [
     children: [
       {
         title: "Add Ambulance",
-        path: "/dashboard/add-ambulance",
+        path: "/dashboard/ambulance-add",
         permissions: ["AMBULANCE_ADD"],
       },
       {
@@ -498,17 +458,17 @@ export const sidebarMenu = [
     children: [
       {
         title: "Add Donor",
-        path: "/dashboard/add-blood-donor",
+        path: "/dashboard/add-donor",
         permissions: ["DONOR_ADD"],
       },
       {
         title: "Manage Donors",
-        path: "/dashboard/manage-blood-donors",
+        path: "/dashboard/manage-donors",
         permissions: ["DONOR_LIST"],
       },
       {
         title: "Add Blood Stock",
-        path: "/dashboard/add-blood-stock",
+        path: "/dashboard/add-stock",
         permissions: ["BLOOD_STOCK_ADD"],
       },
       {
@@ -528,12 +488,12 @@ export const sidebarMenu = [
     children: [
       {
         title: "Add Asset",
-        path: "/dashboard/add-asset",
+        path: "/dashboard/Asset-list",
         permissions: ["ASSET_ADD"],
       },
       {
         title: "Manage Assets",
-        path: "/dashboard/manage-assets",
+        path: "/dashboard/Asset-list",
         permissions: ["ASSET_VIEW", "ASSET_UPDATE"],
       },
     ],
@@ -582,7 +542,7 @@ export const sidebarMenu = [
     children: [
       {
         title: "System Settings",
-        path: "/dashboard/settings",
+        path: "/dashboard/system-settings",
         permissions: ["SYSTEM_SETTINGS_MANAGE"],
       },
     ],
