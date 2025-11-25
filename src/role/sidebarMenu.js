@@ -542,7 +542,7 @@ export const sidebarMenu = [
     children: [
       {
         title: "System Settings",
-        path: "/dashboard/system-settings",
+        path: "/dashboard/settings",
         permissions: ["SYSTEM_SETTINGS_MANAGE"],
       },
     ],
