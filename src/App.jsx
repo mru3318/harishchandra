@@ -69,6 +69,7 @@ import {
 } from "./features/authSlice.js";
 import ViewDoctor from "./components/doctor/view-doctor/ViewDoctor.jsx";
 import useSessionTimeout from "./hooks/useSessionTimeout.js";
+import EditPrescription from "./components/prescriptions/edit-prescription/EditPrescription.jsx";
 
 function SessionManager() {
   const exp = useSelector(selectAuthExpiry);
@@ -391,6 +392,12 @@ function App() {
           path: "manage-prescriptions",
           element: <ManagePrescription />,
         },
+        {
+          path: "edit-prescription/:id",
+          element: <EditPrescription />,
+        },
+
+        //settings route
         {
           path: "settings",
           element: <Settings />,

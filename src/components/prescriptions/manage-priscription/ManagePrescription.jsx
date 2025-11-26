@@ -1,11 +1,14 @@
 import React, { useState, useEffect } from "react";
 import { useDispatch, useSelector } from "react-redux";
+import Swal from "sweetalert2";
 import {
   fetchAllPrescriptions,
+  deletePrescription,
   selectPrescriptions,
   selectFetchPrescriptionsStatus,
   selectFetchPrescriptionsError,
 } from "../../../features/priscriptionSlice";
+import { NavLink } from "react-router-dom";
 
 export default function ManagePrescription() {
   const dispatch = useDispatch();
@@ -24,6 +27,37 @@ export default function ManagePrescription() {
       document.getElementById("viewModal")
     );
     modal.show();
+  };
+
+  const handleDelete = async (id) => {
+    const result = await Swal.fire({
+      title: "Are you sure?",
+      text: "You won't be able to revert this!",
+      icon: "warning",
+      showCancelButton: true,
+      confirmButtonColor: "#d33",
+      cancelButtonColor: "#3085d6",
+      confirmButtonText: "Yes, delete it!",
+    });
+
+    if (result.isConfirmed) {
+      try {
+        await dispatch(deletePrescription(id)).unwrap();
+        Swal.fire({
+          title: "Deleted!",
+          text: "Prescription has been deleted.",
+          icon: "success",
+          timer: 2000,
+          showConfirmButton: false,
+        });
+      } catch (error) {
+        Swal.fire({
+          title: "Error!",
+          text: error.message || "Failed to delete prescription.",
+          icon: "error",
+        });
+      }
+    }
   };
 
   useEffect(() => {
@@ -108,10 +142,20 @@ export default function ManagePrescription() {
                       >
                         <i className="bi bi-eye"></i>
                       </button>
-                      <button className="btn btn-sm btn-warning text-white me-1">
+                      <NavLink
+                        to={`/dashboard/edit-prescription/${
+                          row.id || row.prescriptionId
+                        }`}
+                        className="btn btn-sm btn-warning text-white me-1"
+                      >
                         <i className="bi bi-pencil-square"></i>
-                      </button>
-                      <button className="btn btn-sm btn-danger">
+                      </NavLink>
+                      <button
+                        onClick={() =>
+                          handleDelete(row.id || row.prescriptionId)
+                        }
+                        className="btn btn-sm btn-danger"
+                      >
                         <i className="bi bi-trash"></i>
                       </button>
                     </td>

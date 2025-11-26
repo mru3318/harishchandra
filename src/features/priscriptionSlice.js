@@ -62,6 +62,62 @@ export const addPrescription = createAsyncThunk(
   }
 );
 
+// DELETE /api/prescriptions/{id}
+export const deletePrescription = createAsyncThunk(
+  "prescription/deletePrescription",
+  async (prescriptionId, { rejectWithValue }) => {
+    try {
+      await api.delete(`/prescriptions/${prescriptionId}`);
+      return prescriptionId;
+    } catch (err) {
+      if (err.response) {
+        const message =
+          err.response.data?.message || err.response.data || err.message;
+        return rejectWithValue({
+          message,
+          status: err.response.status,
+          url: err.config?.url,
+        });
+      }
+      return rejectWithValue({ message: err.message || "Network error" });
+    }
+  }
+);
+
+// PUT /api/prescriptions/{id}
+export const updatePrescription = createAsyncThunk(
+  "prescription/updatePrescription",
+  async ({ id, prescription }, { rejectWithValue }) => {
+    try {
+      const res = await api.put(`/prescriptions/${id}`, prescription, {
+        headers: { "Content-Type": "application/json" },
+      });
+      return res.data;
+    } catch (err) {
+      if (err.response) {
+        const respData = err.response.data;
+        const errors = Array.isArray(respData)
+          ? respData
+          : respData?.errors || respData?.fieldErrors || undefined;
+        const message =
+          typeof respData === "string"
+            ? respData
+            : respData?.message || respData || err.message;
+        return rejectWithValue({
+          message,
+          status: err.response.status,
+          url: err.config?.url,
+          errors,
+        });
+      }
+      return rejectWithValue({
+        message: err.message || "Network error",
+        code: err.code,
+      });
+    }
+  }
+);
+
 const initialState = {
   prescriptions: [],
   fetchStatus: "idle",
@@ -69,6 +125,11 @@ const initialState = {
   addStatus: "idle",
   addError: null,
   addErrors: null, // array or object from backend validations
+  deleteStatus: "idle",
+  deleteError: null,
+  updateStatus: "idle",
+  updateError: null,
+  updateErrors: null,
 };
 
 const priscriptionSlice = createSlice({
@@ -115,6 +176,47 @@ const priscriptionSlice = createSlice({
         state.addStatus = "failed";
         state.addError = action.payload?.message || action.error?.message;
         state.addErrors = action.payload?.errors;
+      })
+
+      .addCase(deletePrescription.pending, (state) => {
+        state.deleteStatus = "loading";
+        state.deleteError = null;
+      })
+      .addCase(deletePrescription.fulfilled, (state, action) => {
+        state.deleteStatus = "succeeded";
+        state.prescriptions = state.prescriptions.filter(
+          (p) => p.id !== action.payload && p.prescriptionId !== action.payload
+        );
+      })
+      .addCase(deletePrescription.rejected, (state, action) => {
+        state.deleteStatus = "failed";
+        state.deleteError = action.payload?.message || action.error?.message;
+      })
+
+      .addCase(updatePrescription.pending, (state) => {
+        state.updateStatus = "loading";
+        state.updateError = null;
+        state.updateErrors = null;
+      })
+      .addCase(updatePrescription.fulfilled, (state, action) => {
+        state.updateStatus = "succeeded";
+        const updated =
+          action.payload && action.payload.data
+            ? action.payload.data
+            : action.payload;
+        if (updated) {
+          const index = state.prescriptions.findIndex(
+            (p) => p.id === updated.id || p.prescriptionId === updated.id
+          );
+          if (index !== -1) {
+            state.prescriptions[index] = updated;
+          }
+        }
+      })
+      .addCase(updatePrescription.rejected, (state, action) => {
+        state.updateStatus = "failed";
+        state.updateError = action.payload?.message || action.error?.message;
+        state.updateErrors = action.payload?.errors;
       });
   },
 });
@@ -133,5 +235,15 @@ export const selectFetchPrescriptionsStatus = (state) =>
   state.priscription?.fetchStatus;
 export const selectFetchPrescriptionsError = (state) =>
   state.priscription?.fetchError;
+export const selectDeletePrescriptionStatus = (state) =>
+  state.priscription?.deleteStatus;
+export const selectDeletePrescriptionError = (state) =>
+  state.priscription?.deleteError;
+export const selectUpdatePrescriptionStatus = (state) =>
+  state.priscription?.updateStatus;
+export const selectUpdatePrescriptionError = (state) =>
+  state.priscription?.updateError;
+export const selectUpdatePrescriptionErrors = (state) =>
+  state.priscription?.updateErrors;
 
-// `addPrescription` already exported above as a named export.
+// `addPrescription`, `deletePrescription`, and `updatePrescription` already exported above as named exports.
