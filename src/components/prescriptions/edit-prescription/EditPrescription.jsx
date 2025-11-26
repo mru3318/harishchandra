@@ -1,30 +1,48 @@
 import "./EditPrescription.css";
-import React, { useState, useEffect } from "react";
+import React, { useState, useEffect, useMemo } from "react";
 import { useParams, useNavigate } from "react-router-dom";
 import { useDispatch, useSelector } from "react-redux";
 import Swal from "sweetalert2";
-import axios from "axios";
-const API_BASE_URL = import.meta.env.VITE_API_BASE_URL;
 import {
-  fetchAllPrescriptions,
   updatePrescription,
   selectPrescriptions,
+  fetchAllPrescriptions,
 } from "../../../features/priscriptionSlice";
-import { fetchMedicines, selectMedicines } from "../../../features/commanSlice";
+import {
+  selectPatients,
+  selectDepartments,
+  selectMedicines,
+  fetchDoctorsByDepartment,
+  selectDoctors,
+  fetchPatients,
+  fetchDepartments,
+  fetchMedicines,
+} from "../../../features/commanSlice";
 
 export default function EditPrescription() {
   const { id } = useParams();
   const navigate = useNavigate();
   const dispatch = useDispatch();
 
-  const prescriptions = useSelector(selectPrescriptions) || [];
-  const medicines = useSelector(selectMedicines) || {};
+  const rawPrescriptions = useSelector(selectPrescriptions);
+  const rawMedicines = useSelector(selectMedicines);
+  const rawDepartments = useSelector(selectDepartments);
+  const rawPatients = useSelector(selectPatients);
+  const rawDoctors = useSelector(selectDoctors);
 
-  const [departments, setDepartments] = useState([]);
-  const [patients, setPatients] = useState([]);
+  const prescriptions = useMemo(
+    () => rawPrescriptions || [],
+    [rawPrescriptions]
+  );
+  const medicines = useMemo(() => rawMedicines || {}, [rawMedicines]);
+  const departments = useMemo(() => rawDepartments || [], [rawDepartments]);
+  // console.log("Departments in EditPrescription:", departments);
+  const patients = useMemo(() => rawPatients || [], [rawPatients]);
+  const doctors = useMemo(() => rawDoctors || [], [rawDoctors]);
   const [selectedDept, setSelectedDept] = useState("");
   const [selectedDoctorId, setSelectedDoctorId] = useState("");
-  const [doctors, setDoctors] = useState([]);
+  const [originalDoctorId, setOriginalDoctorId] = useState(null);
+  const [originalDeptId, setOriginalDeptId] = useState(null);
 
   const [patientQuery, setPatientQuery] = useState("");
   const [selectedPatientId, setSelectedPatientId] = useState("");
@@ -42,47 +60,40 @@ export default function EditPrescription() {
   const [activeRowIndex, setActiveRowIndex] = useState(null);
   const [medicineQuery, setMedicineQuery] = useState("");
 
-  // Fetch all required data on mount
+  // Fetch reference data on mount
   useEffect(() => {
-    let mounted = true;
+    dispatch(fetchPatients());
+    dispatch(fetchDepartments());
     dispatch(fetchMedicines());
     dispatch(fetchAllPrescriptions());
-
-    // Fetch departments
-    const loadDepartments = async () => {
-      try {
-        const res = await axios.get(
-          `${API_BASE_URL}/doctor-schedule/departments`
-        );
-        const data = res.data?.data ?? res.data;
-        if (mounted) setDepartments(Array.isArray(data) ? data : []);
-      } catch (err) {
-        console.error("Failed to load departments:", err);
-      }
-    };
-
-    // Fetch patients
-    const loadPatients = async () => {
-      try {
-        const res = await axios.get(`${API_BASE_URL}/patients/names-and-ids`);
-        const data = res.data?.data ?? res.data;
-        if (mounted) setPatients(Array.isArray(data) ? data : []);
-      } catch (err) {
-        console.error("Failed to load patients:", err);
-      }
-    };
-
-    loadDepartments();
-    loadPatients();
-    return () => (mounted = false);
   }, [dispatch]);
+
+  // Debug: Log departments and doctors when they change
+  // useEffect(() => {
+  //   // console.log("Departments loaded:", departments);
+  // }, [departments]);
+
+  // useEffect(() => {
+  //   console.log("Doctors loaded:", doctors);
+  // }, [doctors]);
 
   // Load prescription data when available
   useEffect(() => {
-    if (id && prescriptions.length > 0 && patients.length > 0) {
+    console.log(
+      "Loading prescription. ID:",
+      id,
+      "Prescriptions count:",
+      prescriptions.length,
+      "Patients count:",
+      patients.length
+    );
+
+    if (id && prescriptions.length > 0) {
       const prescription = prescriptions.find(
         (p) => p.id === Number(id) || p.prescriptionId === Number(id)
       );
+
+      // console.log("Found prescription:", prescription);
 
       if (prescription) {
         setSelectedDept(String(prescription.departmentId || ""));
@@ -90,15 +101,23 @@ export default function EditPrescription() {
         setSelectedPatientId(String(prescription.patientId || ""));
         setPatientQuery(prescription.patientName || "");
 
+        setOriginalDoctorId(prescription.doctorId || null);
+        setOriginalDeptId(prescription.departmentId || null);
         // Find patient from patients array to get current age/gender
-        const patient = patients.find(
-          (p) => (p.patientId || p.id) === prescription.patientId
-        );
-        if (patient) {
-          setPatientAge(String(patient.age || ""));
-          setPatientGender(patient.gender || "");
+        if (patients.length > 0) {
+          const patient = patients.find(
+            (p) => (p.patientId || p.id) === prescription.patientId
+          );
+          if (patient) {
+            setPatientAge(String(patient.age || ""));
+            setPatientGender(patient.gender || "");
+          } else {
+            // Fallback to prescription data if patient not found
+            setPatientAge(String(prescription.patientAge || ""));
+            setPatientGender(prescription.patientGender || "");
+          }
         } else {
-          // Fallback to prescription data if patient not found
+          // Use prescription data if patients not loaded yet
           setPatientAge(String(prescription.patientAge || ""));
           setPatientGender(prescription.patientGender || "");
         }
@@ -124,44 +143,74 @@ export default function EditPrescription() {
 
   // Fetch doctors when department changes
   useEffect(() => {
-    let mounted = true;
     if (selectedDept) {
-      const loadDoctors = async () => {
-        try {
-          const res = await axios.get(
-            `${API_BASE_URL}/doctor-schedule/doctors/${selectedDept}`
-          );
-          const data = res.data?.data ?? res.data;
-          if (mounted) setDoctors(Array.isArray(data) ? data : []);
-        } catch (err) {
-          console.error("Failed to load doctors:", err);
-          if (mounted) setDoctors([]);
-        }
-      };
-      loadDoctors();
-    } else {
-      setDoctors([]);
+      dispatch(fetchDoctorsByDepartment(selectedDept));
     }
-    return () => (mounted = false);
-  }, [selectedDept]);
+  }, [selectedDept, dispatch]);
 
-  // Helper functions for autocomplete
-  const getFilteredPatients = () => {
-    if (!patientQuery) return [];
-    const q = patientQuery.toLowerCase();
-    return patients
-      .filter((p) => {
-        const fullName = `${p.firstName || ""} ${
-          p.lastName || ""
-        }`.toLowerCase();
-        return (
-          (p.firstName && p.firstName.toLowerCase().includes(q)) ||
-          (p.lastName && p.lastName.toLowerCase().includes(q)) ||
-          fullName.includes(q)
+  // If departments load after prescription, set selectedDept from originalDeptId
+  useEffect(() => {
+    if (
+      (!selectedDept || selectedDept === "") &&
+      departments.length > 0 &&
+      originalDeptId
+    ) {
+      const foundDept = departments.find(
+        (d) =>
+          (d.departmentId || d.id) === originalDeptId ||
+          String(d.departmentId || d.id) === String(originalDeptId)
+      );
+      if (foundDept) {
+        setSelectedDept(String(foundDept.departmentId || foundDept.id));
+      }
+    }
+  }, [departments, originalDeptId, selectedDept]);
+
+  // After doctors load, ensure selectedDoctorId matches available doctor keys
+  useEffect(() => {
+    if (doctors.length > 0 && originalDoctorId) {
+      const found = doctors.find(
+        (d) =>
+          (d.userId || d.id || d.doctorId) === originalDoctorId ||
+          String(d.userId || d.id || d.doctorId) === String(originalDoctorId)
+      );
+      if (found) {
+        setSelectedDoctorId(String(found.userId || found.id || found.doctorId));
+      }
+    }
+  }, [doctors, originalDoctorId]);
+
+  // Fill missing medicineId values from commanSlice medicines map when available
+  useEffect(() => {
+    if (!medicines || Object.keys(medicines).length === 0) return;
+    let changed = false;
+    const updated = rows.map((r) => {
+      if (
+        (r.medicineId === null ||
+          r.medicineId === "" ||
+          r.medicineId === undefined) &&
+        r.medicineName
+      ) {
+        const found = Object.entries(medicines).find(
+          ([, name]) =>
+            name &&
+            r.medicineName &&
+            name.toLowerCase() === r.medicineName.toLowerCase()
         );
-      })
-      .slice(0, 10);
-  };
+        if (found) {
+          changed = true;
+          return { ...r, medicineId: String(found[0]) };
+        }
+      }
+      return r;
+    });
+    if (changed) setRows(updated);
+  }, [medicines, rows]);
+
+  // Note: patient details are expected to be available in `patients` or
+  // from the prescription data; no network fetch is performed here.
+
+  // Patient suggestion removed: keep patientQuery as plain input
 
   const getFilteredMedicines = () => {
     if (!medicineQuery) return [];
@@ -215,7 +264,7 @@ export default function EditPrescription() {
         timer: 2000,
         showConfirmButton: false,
       });
-      setTimeout(() => navigate("/dashboard/manage-prescription"), 2000);
+      setTimeout(() => navigate("/dashboard/manage-prescriptions"), 2000);
     } catch (error) {
       Swal.fire({
         icon: "error",
@@ -228,7 +277,6 @@ export default function EditPrescription() {
   const handleReset = () => {
     setSelectedDept("");
     setSelectedDoctorId("");
-    setDoctors([]);
     setPatientQuery("");
     setSelectedPatientId("");
     setPatientAge("");
@@ -303,7 +351,7 @@ export default function EditPrescription() {
                     key={dept.departmentId || dept.id}
                     value={dept.departmentId || dept.id}
                   >
-                    {dept.departmentName || dept.name}
+                    {dept.department_name}
                   </option>
                 ))}
               </select>
@@ -327,7 +375,7 @@ export default function EditPrescription() {
                     key={doc.userId || doc.id}
                     value={doc.userId || doc.id}
                   >
-                    Dr. {doc.firstName} {doc.lastName}
+                    Dr. {doc.name}
                   </option>
                 ))}
               </select>
@@ -352,32 +400,7 @@ export default function EditPrescription() {
                 required
                 autoComplete="off"
               />
-              {patientQuery && getFilteredPatients().length > 0 && (
-                <ul
-                  className="list-group position-absolute w-100"
-                  style={{
-                    zIndex: 1000,
-                    maxHeight: "200px",
-                    overflowY: "auto",
-                  }}
-                >
-                  {getFilteredPatients().map((p) => (
-                    <li
-                      key={p.patientId || p.id}
-                      className="list-group-item list-group-item-action"
-                      onMouseDown={() => {
-                        setPatientQuery(`${p.firstName} ${p.lastName}`);
-                        setSelectedPatientId(p.patientId || p.id);
-                        setPatientAge(String(p.age || ""));
-                        setPatientGender(p.gender || "");
-                      }}
-                      role="button"
-                    >
-                      {p.firstName} {p.lastName} - Age: {p.age}, {p.gender}
-                    </li>
-                  ))}
-                </ul>
-              )}
+              {/* patient suggestions intentionally removed */}
             </div>
             <div className="col-md-3">
               <label className="form-label fw-semibold">Age</label>

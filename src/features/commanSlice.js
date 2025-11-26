@@ -21,8 +21,12 @@ export const fetchDepartments = createAsyncThunk(
   async (_, { rejectWithValue }) => {
     try {
       const res = await axios.get(`${API_BASE_URL}/department/all`);
-      return res.data; // assume API returns array of departments
+      // Handle both direct array and wrapped response
+      const data = res.data?.data || res.data;
+      console.log("Departments API response:", data);
+      return data;
     } catch (err) {
+      console.error("Failed to fetch departments:", err);
       return rejectWithValue(err.response?.data || err.message);
     }
   }
@@ -41,16 +45,43 @@ export const fetchMedicines = createAsyncThunk(
   }
 );
 
+// Thunk to fetch doctors by department id
+export const fetchDoctorsByDepartment = createAsyncThunk(
+  "comman/fetchDoctorsByDepartment",
+  async (departmentId, { rejectWithValue }) => {
+    try {
+      const res = await axios.get(
+        `${API_BASE_URL}/doctor-schedule/doctors/${departmentId}`
+      );
+      // Handle both direct array and wrapped response
+      const data = res.data?.data || res.data;
+      console.log("Doctors API response for dept", departmentId, ":", data);
+      return data;
+    } catch (err) {
+      console.error(
+        "Failed to fetch doctors for department",
+        departmentId,
+        ":",
+        err
+      );
+      return rejectWithValue(err.response?.data || err.message);
+    }
+  }
+);
+
 const commanSlice = createSlice({
   name: "comman",
   initialState: {
     patients: [],
     departments: [],
+    doctors: [],
     medicines: {}, // { id: name } mapping
     status: "idle", // 'idle' | 'loading' | 'succeeded' | 'failed'
     error: null,
     medicinesStatus: "idle",
     medicinesError: null,
+    doctorsStatus: "idle",
+    doctorsError: null,
   },
   reducers: {
     // optional reducers if needed in future
@@ -63,6 +94,11 @@ const commanSlice = createSlice({
       state.departments = [];
       state.departmentsStatus = "idle";
       state.departmentsError = null;
+    },
+    clearDoctors(state) {
+      state.doctors = [];
+      state.doctorsStatus = "idle";
+      state.doctorsError = null;
     },
     clearMedicines(state) {
       state.medicines = {};
@@ -117,10 +153,27 @@ const commanSlice = createSlice({
         state.medicinesStatus = "failed";
         state.medicinesError = action.payload || action.error.message;
       });
+
+    // doctors reducers
+    builder
+      .addCase(fetchDoctorsByDepartment.pending, (state) => {
+        state.doctorsStatus = "loading";
+        state.doctorsError = null;
+      })
+      .addCase(fetchDoctorsByDepartment.fulfilled, (state, action) => {
+        state.doctorsStatus = "succeeded";
+        state.doctors = Array.isArray(action.payload)
+          ? action.payload
+          : action.payload?.data || [];
+      })
+      .addCase(fetchDoctorsByDepartment.rejected, (state, action) => {
+        state.doctorsStatus = "failed";
+        state.doctorsError = action.payload || action.error.message;
+      });
   },
 });
 
-export const { clearPatients, clearDepartments, clearMedicines } =
+export const { clearPatients, clearDepartments, clearMedicines, clearDoctors } =
   commanSlice.actions;
 
 // Selectors
@@ -141,3 +194,9 @@ export const selectMedicinesError = (state) =>
   state.comman?.medicinesError || null;
 
 export default commanSlice.reducer;
+
+// Selectors for doctors
+export const selectDoctors = (state) => state.comman?.doctors || [];
+export const selectDoctorsStatus = (state) =>
+  state.comman?.doctorsStatus || "idle";
+export const selectDoctorsError = (state) => state.comman?.doctorsError || null;
