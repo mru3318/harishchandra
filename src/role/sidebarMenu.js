@@ -343,36 +343,58 @@ export const sidebarMenu = [
       {
         title: "Add Birth Report",
         path: "/dashboard/baby-birth-certificate",
+        roles: ["SUPER_ADMIN", "ADMIN", "DOCTOR", "RECEPTIONIST", "HEADNURSE"],
         permissions: ["BIRTH_REPORT_ADD"],
       },
       {
         title: "Manage Birth Reports",
         path: "/dashboard/manage-birth-certificates",
+        roles: ["SUPER_ADMIN", "ADMIN", "DOCTOR", "RECEPTIONIST", "HEADNURSE"],
         permissions: ["REPORT_LIST"],
       },
       {
         title: "Add Death Report",
         path: "/dashboard/death-certificate",
+        roles: ["SUPER_ADMIN", "ADMIN", "DOCTOR", "RECEPTIONIST", "HEADNURSE"],
         permissions: ["DEATH_REPORT_ADD"],
       },
       {
         title: "Manage Death Reports",
         path: "/dashboard/manage-death-certificates",
+        roles: ["SUPER_ADMIN", "ADMIN", "DOCTOR", "RECEPTIONIST", "HEADNURSE"],
         permissions: ["REPORT_LIST"],
       },
 
       {
-        title: "Add Lab Report",
-        path: "/dashboard/add-pathology-report",
-        permissions: ["PATHLAB_REPORT_ADD", "RADIOLOGY_REPORT_ADD"],
+        title: "Pathology Reports",
+        collapseId: "pathology-reports",
+        children: [
+          {
+            title: "Add New Report",
+            path: "/dashboard/add-pathology-report",
+            permissions: ["PATHLAB_REPORT_ADD"],
+          },
+          {
+            title: "Manage Reports",
+            path: "/dashboard/manage-pathology-reports",
+            permissions: ["LAB_REPORT_LIST", "PATHLAB_REPORT_MANAGE"],
+          },
+        ],
       },
       {
-        title: "Manage Lab Reports",
-        path: "/dashboard/manage-pathology-reports",
-        permissions: [
-          "LAB_REPORT_LIST",
-          "PATHLAB_REPORT_MANAGE",
-          "RADIOLOGY_REPORT_MANAGE",
+        title: "Radiology Reports",
+        collapseId: "radiology-reports",
+        children: [
+          {
+            title: "Add New Report",
+            path: "/dashboard/add-radiology-report",
+            permissions: ["RADIOLOGY_REPORT_ADD"],
+          },
+          {
+            title: "Manage Reports",
+            path: "/dashboard/manage-radiology-reports",
+            permissions: ["RADIOLOGY_REPORT_MANAGE", "LAB_REPORT_LIST"],
+          },
         ],
       },
     ],

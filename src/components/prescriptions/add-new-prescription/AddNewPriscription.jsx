@@ -1,9 +1,14 @@
 import "./AddNewPriscription.css";
 import React, { useState, useEffect } from "react";
-import { useDispatch } from "react-redux";
+import { useDispatch, useSelector } from "react-redux";
 import axios from "axios";
 import Swal from "sweetalert2";
 import { addPrescription } from "../../../features/priscriptionSlice";
+import {
+  fetchMedicines,
+  selectMedicines,
+  selectMedicinesStatus,
+} from "../../../features/commanSlice";
 const API_BASE_URL = import.meta.env.VITE_API_BASE_URL;
 export default function AddNewPrescription() {
   // `${API_BASE_URL}/endpoint`
@@ -25,7 +30,20 @@ export default function AddNewPrescription() {
   const [patientAge, setPatientAge] = useState("");
   const [patientGender, setPatientGender] = useState("");
   const dispatch = useDispatch();
+
+  // Get medicines from Redux
+  const medicines = useSelector(selectMedicines);
+  const medicinesStatus = useSelector(selectMedicinesStatus);
+
   // console.log("URL is :", API_BASE_URL);
+
+  // Fetch medicines on mount
+  useEffect(() => {
+    if (medicinesStatus === "idle") {
+      dispatch(fetchMedicines());
+    }
+  }, [dispatch, medicinesStatus]);
+
   // Fetch departments on mount
   useEffect(() => {
     let mounted = true;
@@ -123,18 +141,14 @@ export default function AddNewPrescription() {
     const prescriptionDate =
       fd.get("prescriptionDate") || new Date().toISOString().split("T")[0];
 
-    // collect medicines from table rows
-    const medicineRows = Array.from(form.querySelectorAll("tbody tr"));
-    const medicines = medicineRows
-      .map((row) => {
-        const inputs = row.querySelectorAll("input");
-        return {
-          medicineName: inputs[0]?.value || "",
-          frequency: inputs[1]?.value || "",
-          duration: inputs[2]?.value || "",
-        };
-      })
-      .filter((m) => m.medicineName || m.frequency || m.duration);
+    // collect medicines from rows state (not from DOM)
+    const medicines = rows
+      .filter((m) => m.medicineId && m.frequency && m.duration)
+      .map((m) => ({
+        medicineId: Number(m.medicineId),
+        frequency: m.frequency,
+        duration: m.duration,
+      }));
 
     const payload = {
       patientId,
@@ -177,16 +191,25 @@ export default function AddNewPrescription() {
     setSelectedPatientId("");
     setPatientAge("");
     setPatientGender("");
-    setRows([{ medicineName: "", frequency: "", duration: "" }]);
+    setRows([
+      { medicineId: "", medicineName: "", frequency: "", duration: "" },
+    ]);
+    setMedicineQuery("");
+    setActiveRowIndex(null);
   };
 
   //changes by me here
   const [rows, setRows] = useState([
-    { medicineName: "", frequency: "", duration: "" },
+    { medicineId: "", medicineName: "", frequency: "", duration: "" },
   ]);
+  const [medicineQuery, setMedicineQuery] = useState("");
+  const [activeRowIndex, setActiveRowIndex] = useState(null);
 
   const handleAddRow = () => {
-    setRows([...rows, { medicineName: "", frequency: "", duration: "" }]);
+    setRows([
+      ...rows,
+      { medicineId: "", medicineName: "", frequency: "", duration: "" },
+    ]);
   };
 
   const handleRemoveRow = (index) => {
@@ -199,7 +222,26 @@ export default function AddNewPrescription() {
     const updated = [...rows];
     updated[index][field] = value;
     setRows(updated);
+
+    // Track medicine search query for autocomplete
+    if (field === "medicineName") {
+      setMedicineQuery(value);
+      setActiveRowIndex(index);
+    }
   };
+
+  // Filter medicines based on search query
+  const getFilteredMedicines = () => {
+    if (!medicineQuery || activeRowIndex === null) return [];
+
+    const query = medicineQuery.toLowerCase();
+    return Object.entries(medicines)
+      .filter(([, name]) => name.toLowerCase().includes(query))
+      .slice(0, 8)
+      .map(([id, name]) => ({ id, name }));
+  };
+
+  const filteredMedicines = getFilteredMedicines();
 
   return (
     <div className="prescription-card full-width-card card shadow border-0 rounded-3">
@@ -421,16 +463,65 @@ export default function AddNewPrescription() {
                 <tbody>
                   {rows.map((row, index) => (
                     <tr key={index}>
-                      <td>
+                      <td className="position-relative">
                         <input
                           type="text"
                           className="form-control"
-                          placeholder="e.g., Paracetamol"
+                          placeholder={
+                            medicinesStatus === "loading"
+                              ? "Loading medicines..."
+                              : "Search medicine name"
+                          }
                           value={row.medicineName}
                           onChange={(e) =>
                             handleChange(index, "medicineName", e.target.value)
                           }
+                          onFocus={() => {
+                            setActiveRowIndex(index);
+                            setMedicineQuery(row.medicineName);
+                          }}
+                          onBlur={() => {
+                            // Delay to allow click on suggestion
+                            setTimeout(() => {
+                              if (activeRowIndex === index) {
+                                setActiveRowIndex(null);
+                                setMedicineQuery("");
+                              }
+                            }, 200);
+                          }}
+                          autoComplete="off"
                         />
+
+                        {/* Medicine Suggestions */}
+                        {activeRowIndex === index &&
+                          filteredMedicines.length > 0 && (
+                            <ul
+                              className="list-group position-absolute w-100"
+                              style={{
+                                zIndex: 1200,
+                                maxHeight: "200px",
+                                overflowY: "auto",
+                              }}
+                            >
+                              {filteredMedicines.map((med) => (
+                                <li
+                                  key={med.id}
+                                  className="list-group-item list-group-item-action"
+                                  onMouseDown={() => {
+                                    const updated = [...rows];
+                                    updated[index].medicineId = med.id;
+                                    updated[index].medicineName = med.name;
+                                    setRows(updated);
+                                    setMedicineQuery("");
+                                    setActiveRowIndex(null);
+                                  }}
+                                  role="button"
+                                >
+                                  {med.name}
+                                </li>
+                              ))}
+                            </ul>
+                          )}
                       </td>
 
                       <td>

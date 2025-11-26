@@ -28,13 +28,29 @@ export const fetchDepartments = createAsyncThunk(
   }
 );
 
+// Thunk to fetch medicine id-name mapping
+export const fetchMedicines = createAsyncThunk(
+  "comman/fetchMedicines",
+  async (_, { rejectWithValue }) => {
+    try {
+      const res = await axios.get(`${API_BASE_URL}/medicines/id-name`);
+      return res.data; // returns { "1": "Paracetamol", "2": "Amoxicillin", ... }
+    } catch (err) {
+      return rejectWithValue(err.response?.data || err.message);
+    }
+  }
+);
+
 const commanSlice = createSlice({
   name: "comman",
   initialState: {
     patients: [],
     departments: [],
+    medicines: {}, // { id: name } mapping
     status: "idle", // 'idle' | 'loading' | 'succeeded' | 'failed'
     error: null,
+    medicinesStatus: "idle",
+    medicinesError: null,
   },
   reducers: {
     // optional reducers if needed in future
@@ -47,6 +63,11 @@ const commanSlice = createSlice({
       state.departments = [];
       state.departmentsStatus = "idle";
       state.departmentsError = null;
+    },
+    clearMedicines(state) {
+      state.medicines = {};
+      state.medicinesStatus = "idle";
+      state.medicinesError = null;
     },
   },
   extraReducers: (builder) => {
@@ -82,10 +103,25 @@ const commanSlice = createSlice({
         state.departmentsStatus = "failed";
         state.departmentsError = action.payload || action.error.message;
       });
+    // medicines reducers
+    builder
+      .addCase(fetchMedicines.pending, (state) => {
+        state.medicinesStatus = "loading";
+        state.medicinesError = null;
+      })
+      .addCase(fetchMedicines.fulfilled, (state, action) => {
+        state.medicinesStatus = "succeeded";
+        state.medicines = action.payload || {};
+      })
+      .addCase(fetchMedicines.rejected, (state, action) => {
+        state.medicinesStatus = "failed";
+        state.medicinesError = action.payload || action.error.message;
+      });
   },
 });
 
-export const { clearPatients, clearDepartments } = commanSlice.actions;
+export const { clearPatients, clearDepartments, clearMedicines } =
+  commanSlice.actions;
 
 // Selectors
 export const selectPatients = (state) => state.comman?.patients || [];
@@ -97,5 +133,11 @@ export const selectDepartmentsStatus = (state) =>
   state.comman?.departmentsStatus || "idle";
 export const selectDepartmentsError = (state) =>
   state.comman?.departmentsError || null;
+
+export const selectMedicines = (state) => state.comman?.medicines || {};
+export const selectMedicinesStatus = (state) =>
+  state.comman?.medicinesStatus || "idle";
+export const selectMedicinesError = (state) =>
+  state.comman?.medicinesError || null;
 
 export default commanSlice.reducer;
