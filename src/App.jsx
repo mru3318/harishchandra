@@ -82,6 +82,7 @@ function App() {
   const status = useSelector(selectAuthStatus);
   const roles = useSelector(selectAuthRoles);
   const permissions = useSelector(selectAuthPermissions);
+  const [isHydrating, setIsHydrating] = React.useState(true);
 
   // const expiresAt = useSelector(selectAuthExpiry);
   // const isAuthenticated = useSelector(selectIsAuthenticated);
@@ -134,9 +135,16 @@ function App() {
 
   useEffect(() => {
     console.log("Dispatching hydrateAuth...");
-
-    dispatch(hydrateAuth());
+    dispatch(hydrateAuth()).finally(() => {
+      // Auth hydration complete (success or failure)
+      setIsHydrating(false);
+    });
   }, [dispatch]);
+
+  // Show loading spinner while hydrating auth
+  if (isHydrating) {
+    return <GlobalSpinner />;
+  }
 
   console.log("Auth status:", status);
   console.log("Auth roles:", roles, "permissions:", permissions);

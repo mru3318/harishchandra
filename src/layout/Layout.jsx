@@ -41,6 +41,58 @@ const Layout = () => {
   // Legacy static sidebar support (disabled)
   const isAllowed = () => false;
 
+  // Auto-open menu that contains the current route
+  useEffect(() => {
+    if (!location || location.pathname === "/dashboard") return;
+
+    // Find which menu contains the current path
+    const currentPath = location.pathname;
+    for (const item of sidebarMenu) {
+      if (item.children && Array.isArray(item.children)) {
+        const hasActiveChild = item.children.some(
+          (child) =>
+            child.path === currentPath ||
+            (child.children &&
+              child.children.some((gc) => gc.path === currentPath))
+        );
+        if (hasActiveChild) {
+          const key = item.collapseId || slug(item.title);
+          setOpenMenu(key);
+          break;
+        }
+      }
+    }
+  }, [location]);
+
+  // Also listen to browser history (back/forward) events to ensure
+  // the open menu stays in sync when users use the browser Back/Forward
+  useEffect(() => {
+    const handlePop = () => {
+      if (!location || location.pathname === "/dashboard") return;
+      const currentPath = location.pathname;
+      for (const item of sidebarMenu) {
+        if (item.children && Array.isArray(item.children)) {
+          const hasActiveChild = item.children.some(
+            (child) =>
+              child.path === currentPath ||
+              (child.children &&
+                child.children.some((gc) => gc.path === currentPath))
+          );
+          if (hasActiveChild) {
+            const key = item.collapseId || slug(item.title);
+            setOpenMenu(key);
+            return;
+          }
+        }
+      }
+      // if none match, close menus
+      setOpenMenu(null);
+    };
+
+    window.addEventListener("popstate", handlePop);
+    return () => window.removeEventListener("popstate", handlePop);
+  }, [location]);
+
   useEffect(() => {
     // remove any leftover 'active' classes from sidebar nav items so styles
     // coming from CSS selectors like `.nav-item.active` do not apply.
@@ -49,10 +101,10 @@ const Layout = () => {
     const activeEls = sidebar.querySelectorAll(".active");
     activeEls.forEach((el) => el.classList.remove("active"));
     // If user is on dashboard root, ensure no sidebar menu is open by default
-    if (location && location.pathname === "/") {
+    if (location && location.pathname === "/dashboard") {
       setOpenMenu(null);
     }
-  }, [location, openMenu]);
+  }, [location]);
 
   useEffect(() => {
     // enforce accordion: only the collapse matching openMenu should have 'show'
