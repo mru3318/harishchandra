@@ -73,6 +73,54 @@ export default function ManagePrescription() {
 
     return searchMatch;
   });
+  // print button
+  const handlePrint = () => {
+    const printContent = document.getElementById("printArea");
+    if (!printContent) {
+      alert("Print content not found!");
+      return;
+    }
+
+    const printWindow = window.open("", "", "width=900,height=700");
+
+    // Copy all stylesheet links so printing looks the same as modal view
+    const stylesheets = Array.from(document.styleSheets)
+      .map((sheet) => `<link rel="stylesheet" href="${sheet.href}">`)
+      .join("");
+
+    printWindow.document.write(`
+    <html>
+      <head>
+        <title>Prescription Print</title>
+        ${stylesheets}
+ 
+        <style>
+          /* Ensure the print area fits neatly */
+          body {
+            margin: 20px;
+            font-family: Arial, sans-serif;
+            background: white;
+          }
+ 
+          @page {
+            size: A4;
+            margin: 20mm;
+          }
+        </style>
+      </head>
+ 
+      <body>${printContent.innerHTML}</body>
+    </html>
+  `);
+
+    printWindow.document.close();
+
+    // Wait to load styles
+    setTimeout(() => {
+      printWindow.print();
+      printWindow.close();
+    }, 500);
+  };
 
   return (
     <>
@@ -138,23 +186,23 @@ export default function ManagePrescription() {
                         onClick={() =>
                           openViewModal(row.id || row.prescriptionId)
                         }
-                        className="btn btn-sm btn-info text-white me-1"
+                        className="btn btn-primary btn-sm text-white me-1"
                       >
                         <i className="bi bi-eye"></i>
                       </button>
                       <NavLink
+                        className="btn btn-warning btn-sm text-dark me-1"
                         to={`/dashboard/edit-prescription/${
                           row.id || row.prescriptionId
                         }`}
-                        className="btn btn-sm btn-warning text-white me-1"
                       >
                         <i className="bi bi-pencil-square"></i>
                       </NavLink>
                       <button
+                        className="btn btn-danger btn-sm"
                         onClick={() =>
                           handleDelete(row.id || row.prescriptionId)
                         }
-                        className="btn btn-sm btn-danger"
                       >
                         <i className="bi bi-trash"></i>
                       </button>
@@ -171,7 +219,10 @@ export default function ManagePrescription() {
       <div className="modal fade" id="viewModal" tabIndex="-1">
         <div className="modal-dialog modal-lg modal-dialog-centered">
           <div className="modal-content">
-            <div className="modal-header bg-info text-white">
+            <div
+              className="modal-header text-white"
+              style={{ backgroundColor: "#01C0C8" }}
+            >
               <h5 className="modal-title">
                 <i className="bi bi-file-earmark-medical"></i> Prescription
               </h5>
@@ -186,13 +237,23 @@ export default function ManagePrescription() {
               {selected && (
                 <div id="printArea" className="p-3">
                   <div className="text-center mb-4">
+                    <img
+                      className="my-2"
+                      src="/assets/images/harishchandra-logo-mini.png"
+                      alt="Hospital Logo"
+                      style={{
+                        width: "60px",
+                        height: "60px",
+                        marginRight: "15px",
+                      }}
+                    />
                     <h4 className="fw-bold text-primary">
                       HARISHCHANDRA MULTISPECIALIST HOSPITAL
                     </h4>
                     <p className="mb-0">Shivaji Nagar, Pune – 411005</p>
                     <p className="mb-0">Phone: +91 9876543210</p>
                     <hr />
-                    <h5 className="fw-bold text-info">PRESCRIPTION</h5>
+                    <h5 className="fw-bold text-primary">PRESCRIPTION</h5>
                   </div>
 
                   <p>
@@ -253,13 +314,14 @@ export default function ManagePrescription() {
             </div>
 
             <div className="modal-footer">
-              <button className="btn btn-secondary" data-bs-dismiss="modal">
+              <button
+                className="button"
+                style={{ backgroundColor: "#aaaaaa" }}
+                data-bs-dismiss="modal"
+              >
                 Close
               </button>
-              <button
-                className="btn btn-primary"
-                onClick={() => window.print()}
-              >
+              <button className="button btn-primary" onClick={handlePrint}>
                 Print
               </button>
             </div>
