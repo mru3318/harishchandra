@@ -5,6 +5,7 @@ import {
   BloodGroupOptions,
   ExperienceLevel,
   GenderOptions,
+  QualificationOptions,
 } from "../../../../constants";
 import { useSelector, useDispatch } from "react-redux";
 import { fetchStates } from "../../../features/statesSlice";
@@ -19,6 +20,23 @@ import Swal from "sweetalert2";
 import "sweetalert2/dist/sweetalert2.min.css";
 
 const EmployeeRegistration = () => {
+  const fieldLabels = {
+    firstName: "First Name",
+    lastName: "Last Name",
+    mobileNumber: "Mobile Number",
+    username: "Username",
+    email: "Email",
+    password: "Password",
+    confirmPassword: "Confirm Password",
+    gender: "Gender",
+    dob: "Date of Birth",
+    role: "Role",
+    qualifications: "Qualifications",
+    addressLine1: "Address Line 1",
+    state: "State",
+    city: "City",
+  };
+
   const dispatch = useDispatch();
   const { list: states, status: statesStatus } = useSelector(
     (state) => state.states
@@ -111,9 +129,16 @@ const EmployeeRegistration = () => {
     onSubmit: async (values, { setSubmitting, resetForm, setTouched }) => {
       setSubmitting(true);
       try {
-        // If there are errors, mark all fields as touched to show validation
+        // If there are errors, show notification and mark fields as touched
         const errors = await formik.validateForm();
         if (Object.keys(errors).length > 0) {
+          const errorFields = Object.keys(errors).map(field => fieldLabels[field] || field).join(', ');
+          await Swal.fire({
+            title: "Validation Errors",
+            text: `Please fill the following required fields: ${errorFields}`,
+            icon: "warning",
+            confirmButtonText: "OK",
+          });
           setTouched(
             Object.keys(formik.initialValues).reduce((acc, key) => {
               acc[key] = true;
@@ -339,13 +364,62 @@ const EmployeeRegistration = () => {
                 ?.scrollIntoView({ behavior: "smooth" });
             }
 
+            if (generalMessages.length > 0) {
+              await Swal.fire({
+                title: "Error",
+                text: "An error occurred during registration. Please check your input and try again.",
+                icon: "error",
+                confirmButtonText: "OK",
+              });
+            }
+
             setSubmitting(false);
             return;
+          } else if (typeof errMsg === 'object' && errMsg !== null) {
+            // Handle object errors like { field: message } or { message: "error" }
+            const fieldErrors = {};
+            const generalMessages = [];
+            for (const key in errMsg) {
+              if (errMsg[key]) {
+                if (formik.initialValues.hasOwnProperty(key)) {
+                  fieldErrors[key] = errMsg[key];
+                } else {
+                  generalMessages.push(errMsg[key]);
+                }
+              }
+            }
+            if (Object.keys(fieldErrors).length > 0) {
+              formik.setErrors(fieldErrors);
+              formik.setTouched(
+                Object.keys(fieldErrors).reduce((acc, key) => {
+                  acc[key] = true;
+                  return acc;
+                }, {})
+              );
+              const firstField = Object.keys(fieldErrors)[0];
+              if (firstField) {
+                document
+                  .querySelector(`[name="${firstField}"]`)
+                  ?.scrollIntoView({ behavior: "smooth" });
+              }
+              setSubmitting(false);
+              return;
+            }
+            if (generalMessages.length > 0) {
+              await Swal.fire({
+                title: "Error",
+                text: "An error occurred during registration. Please check your input and try again.",
+                icon: "error",
+                confirmButtonText: "OK",
+              });
+              setSubmitting(false);
+              return;
+            }
           }
           // fallback
           await Swal.fire({
             title: "Error",
-            text: typeof errMsg === "string" ? errMsg : "Registration failed",
+            text: "An error occurred during registration. Please check your input and try again.",
             icon: "error",
             confirmButtonText: "OK",
           });
@@ -541,34 +615,56 @@ const EmployeeRegistration = () => {
                     ))}
                 </select>
               </div>
-              {/* Specialization */}
-              <div className="col-12 col-md-6 mb-3">
-                <label className="form-label">Specialization</label>
-                <input
-                  type="text"
-                  name="specialization"
-                  value={formik.values.specialization}
-                  onChange={formik.handleChange}
-                  onBlur={formik.handleBlur}
-                  className="form-control"
-                />
-              </div>
+             {/* Specialization */}
+<div className="col-12 col-md-6 mb-3">
+  <label className="form-label">Specialization</label>
+  <select
+    name="specialization"
+    value={formik.values.specialization}
+    onChange={formik.handleChange}
+    onBlur={formik.handleBlur}
+    className="form-control" style={{"height":"50px"}}
+  >
+    <option value="">-- Select Specialization --</option>
+    <option value="General Physician">General Physician</option>
+    <option value="Cardiologist">Cardiologist</option>
+    <option value="Neurologist">Neurologist</option>
+    <option value="Orthopedic">Orthopedic</option>
+    <option value="Pediatrician">Pediatrician</option>
+    <option value="Dermatologist">Dermatologist</option>
+    <option value="Gynecologist">Gynecologist</option>
+    <option value="ENT Specialist">ENT Specialist</option>
+    <option value="Urologist">Urologist</option>
+    <option value="Dentist">Dentist</option>
+    <option value="Psychiatrist">Psychiatrist</option>
+    <option value="Ophthalmologist">Ophthalmologist</option>
+    <option value="Physiotherapist">Physiotherapist</option>
+    <option value="Radiologist">Radiologist</option>
+    <option value="Oncologist">Oncologist</option>
+  </select>
+</div>
+
               {/* Qualifications (Formik) */}
               <div className="col-12 col-md-6 mb-3">
                 <label className="form-label">Qualifications</label>
-                <input
-                  type="text"
+                <select
                   name="qualifications"
                   value={formik.values.qualifications}
                   onChange={formik.handleChange}
                   onBlur={formik.handleBlur}
-                  className={`form-control ${
+                  className={`form-select ${
                     formik.touched.qualifications &&
                     formik.errors.qualifications
                       ? "is-invalid"
                       : ""
                   }`}
-                />
+                >
+                  {QualificationOptions[role]?.map((opt) => (
+                    <option key={opt.value} value={opt.value}>
+                      {opt.label}
+                    </option>
+                  ))}
+                </select>
                 <div className="invalid-feedback">
                   {formik.errors.qualifications}
                 </div>
@@ -623,19 +719,24 @@ const EmployeeRegistration = () => {
               {/* Qualification Field */}
               <div className="mb-3 col-md-6">
                 <label className="form-label">Qualifications</label>
-                <input
-                  type="text"
+                <select
                   name="qualifications"
                   value={formik.values.qualifications}
                   onChange={formik.handleChange}
                   onBlur={formik.handleBlur}
-                  className={`form-control ${
+                  className={`form-select ${
                     formik.touched.qualifications &&
                     formik.errors.qualifications
                       ? "is-invalid"
                       : ""
                   }`}
-                />
+                >
+                  {QualificationOptions[role]?.map((opt) => (
+                    <option key={opt.value} value={opt.value}>
+                      {opt.label}
+                    </option>
+                  ))}
+                </select>
                 <div className="invalid-feedback">
                   {formik.errors.qualifications}
                 </div>
@@ -684,19 +785,24 @@ const EmployeeRegistration = () => {
               {/* Qualifications (Formik) */}
               <div className="col-12 col-md-6 mb-3">
                 <label className="form-label">Qualifications</label>
-                <input
-                  type="text"
+                <select
                   name="qualifications"
                   value={formik.values.qualifications}
                   onChange={formik.handleChange}
                   onBlur={formik.handleBlur}
-                  className={`form-control ${
+                  className={`form-select ${
                     formik.touched.qualifications &&
                     formik.errors.qualifications
                       ? "is-invalid"
                       : ""
                   }`}
-                />
+                >
+                  {QualificationOptions[role]?.map((opt) => (
+                    <option key={opt.value} value={opt.value}>
+                      {opt.label}
+                    </option>
+                  ))}
+                </select>
                 <div className="invalid-feedback">
                   {formik.errors.qualifications}
                 </div>
@@ -822,26 +928,28 @@ const EmployeeRegistration = () => {
 
           {/* Contact Fields */}
           <div className="row mb-3">
-            <div className="col-md-6">
-              <label className="form-label fw-semibold">
-                Mobile No <span style={{ color: "red" }}>*</span>
-              </label>
-              <input
-                type="text"
-                name="mobileNumber"
-                value={formik.values.mobileNumber}
-                onChange={formik.handleChange}
-                onBlur={formik.handleBlur}
-                className={`form-control ${
-                  formik.touched.mobileNumber && formik.errors.mobileNumber
-                    ? "is-invalid"
-                    : ""
-                }`}
-              />
-              <div className="invalid-feedback">
-                {formik.errors.mobileNumber}
-              </div>
-            </div>
+           <div className="col-md-6">
+  <label className="form-label fw-semibold">
+    Mobile No <span style={{ color: "red" }}>*</span>
+  </label>
+  <input
+    type="number"
+    name="mobileNumber"
+    value={formik.values.mobileNumber}
+    onChange={formik.handleChange}
+    onBlur={formik.handleBlur}
+    onInput={(e) => (e.target.value = e.target.value.slice(0, 10))}
+    className={`form-control ${
+      formik.touched.mobileNumber && formik.errors.mobileNumber
+        ? "is-invalid"
+        : ""
+    }`}
+  />
+  <div className="invalid-feedback">
+    {formik.errors.mobileNumber}
+  </div>
+</div>
+
 
             <div className="col-md-6">
               <label className="form-label fw-semibold">
@@ -1188,6 +1296,7 @@ const EmployeeRegistration = () => {
                   value={formik.values.pincode}
                   onChange={formik.handleChange}
                   onBlur={formik.handleBlur}
+                  onInput={(e) => (e.target.value = e.target.value.replace(/\D/g, '').slice(0, 6))}
                 />
                 <div className="invalid-feedback">{formik.errors.pincode}</div>
               </div>
