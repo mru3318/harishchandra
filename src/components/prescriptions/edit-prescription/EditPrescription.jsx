@@ -620,7 +620,7 @@ export default function EditPrescription() {
               className="btn btn-primary"
               style={{ backgroundColor: "#01C0C8", color: "white" }}
             >
-              <i className="bi bi-save me-1"></i> Save Prescription
+              <i className="bi bi-save me-1"></i> Update Prescription
             </button>
           </div>
         </form>

@@ -106,6 +106,38 @@ const Layout = () => {
     }
   }, [location]);
 
+  // Auto-scroll to top on route change so components rendered in <Outlet />
+  // start at the top of the viewport. Also clear the scroll of the
+  // '.content-wrapper' container if present (app may use inner scrolling).
+  useEffect(() => {
+    const id = setTimeout(() => {
+      try {
+        if (
+          typeof window !== "undefined" &&
+          typeof window.scrollTo === "function"
+        ) {
+          window.scrollTo({ top: 0, behavior: "smooth" });
+        }
+      } catch {
+        // ignore
+      }
+
+      const content =
+        document.querySelector(".content-wrapper") ||
+        document.querySelector(".main-panel");
+      if (content && typeof content.scrollTo === "function") {
+        try {
+          content.scrollTo({ top: 0, left: 0, behavior: "smooth" });
+        } catch {
+          content.scrollTop = 0;
+        }
+      } else if (content) {
+        content.scrollTop = 0;
+      }
+    }, 40);
+    return () => clearTimeout(id);
+  }, [location.pathname]);
+
   useEffect(() => {
     // enforce accordion: only the collapse matching openMenu should have 'show'
     const sidebar = document.getElementById("sidebar");

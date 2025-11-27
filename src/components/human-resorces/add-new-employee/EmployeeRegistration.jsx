@@ -54,6 +54,32 @@ const EmployeeRegistration = () => {
   });
   const [passwordMatch, setPasswordMatch] = useState("");
 
+  // Ensure the entire page scrolls to the absolute top. This is a minimal
+  // helper (no refs) that performs an instant jump to top and clears common
+  // document scroll positions so alerts at the top become visible.
+  const scrollToTopFull = (opts = { behavior: "smooth" }) => {
+    if (
+      typeof window !== "undefined" &&
+      typeof window.scrollTo === "function"
+    ) {
+      try {
+        // instant jump first to remove offsets then optionally smooth
+        window.scrollTo({ top: 0, behavior: "auto" });
+        if (opts.behavior === "smooth") {
+          window.scrollTo({ top: 0, behavior: "smooth" });
+        }
+      } catch {
+        // ignore
+      }
+    }
+    try {
+      if (document.documentElement) document.documentElement.scrollTop = 0;
+      if (document.body) document.body.scrollTop = 0;
+    } catch {
+      // ignore
+    }
+  };
+
   // 1) Include all expected keys in initialValues (use consistent names)
   const formik = useFormik({
     initialValues: {
@@ -132,7 +158,9 @@ const EmployeeRegistration = () => {
         // If there are errors, show notification and mark fields as touched
         const errors = await formik.validateForm();
         if (Object.keys(errors).length > 0) {
-          const errorFields = Object.keys(errors).map(field => fieldLabels[field] || field).join(', ');
+          const errorFields = Object.keys(errors)
+            .map((field) => fieldLabels[field] || field)
+            .join(", ");
           await Swal.fire({
             title: "Validation Errors",
             text: `Please fill the following required fields: ${errorFields}`,
@@ -359,29 +387,51 @@ const EmployeeRegistration = () => {
 
             const firstField = Object.keys(fieldErrors)[0];
             if (firstField) {
-              document
-                .querySelector(`[name="${firstField}"]`)
-                ?.scrollIntoView({ behavior: "smooth" });
+              // ensure viewport goes fully to top then focus field
+              if (typeof scrollToTopFull === "function")
+                scrollToTopFull({ behavior: "smooth" });
+              setTimeout(() => {
+                const el = document.querySelector(`[name="${firstField}"]`);
+                el?.scrollIntoView({ behavior: "smooth", block: "center" });
+                try {
+                  el?.focus();
+                } catch {
+                  /* ignore */
+                }
+              }, 200);
             }
 
-            if (generalMessages.length > 0) {
-              await Swal.fire({
-                title: "Error",
-                text: "An error occurred during registration. Please check your input and try again.",
-                icon: "error",
-                confirmButtonText: "OK",
-              });
+            // Show backend validation messages (array) in SweetAlert as well
+            try {
+              const arrMsg = (Array.isArray(errMsg) ? errMsg : [])
+                .map((e) => e.defaultMessage || e.message || JSON.stringify(e))
+                .filter(Boolean)
+                .join("\n");
+              if (arrMsg)
+                await Swal.fire({
+                  title: "Error",
+                  text: arrMsg,
+                  icon: "error",
+                  confirmButtonText: "OK",
+                });
+            } catch {
+              /* ignore */
             }
 
             setSubmitting(false);
             return;
-          } else if (typeof errMsg === 'object' && errMsg !== null) {
+          } else if (typeof errMsg === "object" && errMsg !== null) {
             // Handle object errors like { field: message } or { message: "error" }
             const fieldErrors = {};
             const generalMessages = [];
             for (const key in errMsg) {
               if (errMsg[key]) {
-                if (formik.initialValues.hasOwnProperty(key)) {
+                if (
+                  Object.prototype.hasOwnProperty.call(
+                    formik.initialValues,
+                    key
+                  )
+                ) {
                   fieldErrors[key] = errMsg[key];
                 } else {
                   generalMessages.push(errMsg[key]);
@@ -398,17 +448,28 @@ const EmployeeRegistration = () => {
               );
               const firstField = Object.keys(fieldErrors)[0];
               if (firstField) {
-                document
-                  .querySelector(`[name="${firstField}"]`)
-                  ?.scrollIntoView({ behavior: "smooth" });
+                if (typeof scrollToTopFull === "function")
+                  scrollToTopFull({ behavior: "smooth" });
+                setTimeout(() => {
+                  const el = document.querySelector(`[name="${firstField}"]`);
+                  el?.scrollIntoView({ behavior: "smooth", block: "center" });
+                  try {
+                    el?.focus();
+                  } catch {
+                    /* ignore */
+                  }
+                }, 200);
               }
               setSubmitting(false);
               return;
             }
             if (generalMessages.length > 0) {
+              const gm = generalMessages.filter(Boolean).join("\n");
               await Swal.fire({
                 title: "Error",
-                text: "An error occurred during registration. Please check your input and try again.",
+                text:
+                  gm ||
+                  "An error occurred during registration. Please check your input and try again.",
                 icon: "error",
                 confirmButtonText: "OK",
               });
@@ -416,13 +477,32 @@ const EmployeeRegistration = () => {
               return;
             }
           }
-          // fallback
-          await Swal.fire({
-            title: "Error",
-            text: "An error occurred during registration. Please check your input and try again.",
-            icon: "error",
-            confirmButtonText: "OK",
-          });
+          // fallback - show backend message if present
+          try {
+            let messageToShow =
+              "An error occurred during registration. Please check your input and try again.";
+            if (typeof errMsg === "string") messageToShow = errMsg;
+            else if (Array.isArray(errMsg))
+              messageToShow = errMsg
+                .map((e) => e.defaultMessage || e.message || JSON.stringify(e))
+                .filter(Boolean)
+                .join("\n");
+            else if (errMsg && typeof errMsg === "object")
+              messageToShow = errMsg.message || JSON.stringify(errMsg);
+            await Swal.fire({
+              title: "Error",
+              text: messageToShow,
+              icon: "error",
+              confirmButtonText: "OK",
+            });
+          } catch {
+            await Swal.fire({
+              title: "Error",
+              text: "An error occurred during registration.",
+              icon: "error",
+              confirmButtonText: "OK",
+            });
+          }
 
           setSubmitting(false);
           return;
@@ -615,34 +695,35 @@ const EmployeeRegistration = () => {
                     ))}
                 </select>
               </div>
-             {/* Specialization */}
-<div className="col-12 col-md-6 mb-3">
-  <label className="form-label">Specialization</label>
-  <select
-    name="specialization"
-    value={formik.values.specialization}
-    onChange={formik.handleChange}
-    onBlur={formik.handleBlur}
-    className="form-control" style={{"height":"50px"}}
-  >
-    <option value="">-- Select Specialization --</option>
-    <option value="General Physician">General Physician</option>
-    <option value="Cardiologist">Cardiologist</option>
-    <option value="Neurologist">Neurologist</option>
-    <option value="Orthopedic">Orthopedic</option>
-    <option value="Pediatrician">Pediatrician</option>
-    <option value="Dermatologist">Dermatologist</option>
-    <option value="Gynecologist">Gynecologist</option>
-    <option value="ENT Specialist">ENT Specialist</option>
-    <option value="Urologist">Urologist</option>
-    <option value="Dentist">Dentist</option>
-    <option value="Psychiatrist">Psychiatrist</option>
-    <option value="Ophthalmologist">Ophthalmologist</option>
-    <option value="Physiotherapist">Physiotherapist</option>
-    <option value="Radiologist">Radiologist</option>
-    <option value="Oncologist">Oncologist</option>
-  </select>
-</div>
+              {/* Specialization */}
+              <div className="col-12 col-md-6 mb-3">
+                <label className="form-label">Specialization</label>
+                <select
+                  name="specialization"
+                  value={formik.values.specialization}
+                  onChange={formik.handleChange}
+                  onBlur={formik.handleBlur}
+                  className="form-control"
+                  style={{ height: "50px" }}
+                >
+                  <option value="">-- Select Specialization --</option>
+                  <option value="General Physician">General Physician</option>
+                  <option value="Cardiologist">Cardiologist</option>
+                  <option value="Neurologist">Neurologist</option>
+                  <option value="Orthopedic">Orthopedic</option>
+                  <option value="Pediatrician">Pediatrician</option>
+                  <option value="Dermatologist">Dermatologist</option>
+                  <option value="Gynecologist">Gynecologist</option>
+                  <option value="ENT Specialist">ENT Specialist</option>
+                  <option value="Urologist">Urologist</option>
+                  <option value="Dentist">Dentist</option>
+                  <option value="Psychiatrist">Psychiatrist</option>
+                  <option value="Ophthalmologist">Ophthalmologist</option>
+                  <option value="Physiotherapist">Physiotherapist</option>
+                  <option value="Radiologist">Radiologist</option>
+                  <option value="Oncologist">Oncologist</option>
+                </select>
+              </div>
 
               {/* Qualifications (Formik) */}
               <div className="col-12 col-md-6 mb-3">
@@ -928,28 +1009,27 @@ const EmployeeRegistration = () => {
 
           {/* Contact Fields */}
           <div className="row mb-3">
-           <div className="col-md-6">
-  <label className="form-label fw-semibold">
-    Mobile No <span style={{ color: "red" }}>*</span>
-  </label>
-  <input
-    type="number"
-    name="mobileNumber"
-    value={formik.values.mobileNumber}
-    onChange={formik.handleChange}
-    onBlur={formik.handleBlur}
-    onInput={(e) => (e.target.value = e.target.value.slice(0, 10))}
-    className={`form-control ${
-      formik.touched.mobileNumber && formik.errors.mobileNumber
-        ? "is-invalid"
-        : ""
-    }`}
-  />
-  <div className="invalid-feedback">
-    {formik.errors.mobileNumber}
-  </div>
-</div>
-
+            <div className="col-md-6">
+              <label className="form-label fw-semibold">
+                Mobile No <span style={{ color: "red" }}>*</span>
+              </label>
+              <input
+                type="number"
+                name="mobileNumber"
+                value={formik.values.mobileNumber}
+                onChange={formik.handleChange}
+                onBlur={formik.handleBlur}
+                onInput={(e) => (e.target.value = e.target.value.slice(0, 10))}
+                className={`form-control ${
+                  formik.touched.mobileNumber && formik.errors.mobileNumber
+                    ? "is-invalid"
+                    : ""
+                }`}
+              />
+              <div className="invalid-feedback">
+                {formik.errors.mobileNumber}
+              </div>
+            </div>
 
             <div className="col-md-6">
               <label className="form-label fw-semibold">
@@ -1296,7 +1376,11 @@ const EmployeeRegistration = () => {
                   value={formik.values.pincode}
                   onChange={formik.handleChange}
                   onBlur={formik.handleBlur}
-                  onInput={(e) => (e.target.value = e.target.value.replace(/\D/g, '').slice(0, 6))}
+                  onInput={(e) =>
+                    (e.target.value = e.target.value
+                      .replace(/\D/g, "")
+                      .slice(0, 6))
+                  }
                 />
                 <div className="invalid-feedback">{formik.errors.pincode}</div>
               </div>

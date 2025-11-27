@@ -70,6 +70,12 @@ import {
 import ViewDoctor from "./components/doctor/view-doctor/ViewDoctor.jsx";
 import useSessionTimeout from "./hooks/useSessionTimeout.js";
 import EditPrescription from "./components/prescriptions/edit-prescription/EditPrescription.jsx";
+import AddOpd from "./components/patients/opd/add-opd/AddOpd.jsx";
+import ViewOpd from "./components/patients/opd/view-opd/ViewOpd.jsx";
+import AddIpd from "./components/patients/ipd/add-ipd/AddIpd.jsx";
+import AddEmergency from "./components/patients/emergency/add-emergency/AddEmergency.jsx";
+import ViewIpd from "./components/patients/ipd/view-ipd/ViewIpd.jsx";
+import ViewEmergency from "./components/patients/emergency/view-emergency/ViewEmergency.jsx";
 
 function SessionManager() {
   const exp = useSelector(selectAuthExpiry);
@@ -403,6 +409,37 @@ function App() {
         {
           path: "edit-prescription/:id",
           element: <EditPrescription />,
+        },
+
+        //Patient management routes here
+        {
+          path: "opd/add-patient",
+          element: <AddOpd />,
+        },
+
+        {
+          path: "opd/view-patients",
+          element: <ViewOpd />,
+        },
+
+        {
+          path: "ipd/add-patient",
+          element: <AddIpd />,
+        },
+
+        {
+          path: "ipd/view-patients",
+          element: <ViewIpd />,
+        },
+
+        {
+          path: "emergency/add-patient",
+          element: <AddEmergency />,
+        },
+
+        {
+          path: "emergency/view-patients",
+          element: <ViewEmergency />,
         },
 
         //settings route
