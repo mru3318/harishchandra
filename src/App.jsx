@@ -140,7 +140,7 @@ function App() {
   // }, [expiresAt, isAuthenticated, dispatch]);
 
   useEffect(() => {
-    console.log("Dispatching hydrateAuth...");
+    // console.log("Dispatching hydrateAuth...");
     dispatch(hydrateAuth()).finally(() => {
       // Auth hydration complete (success or failure)
       setIsHydrating(false);
@@ -152,8 +152,8 @@ function App() {
     return <GlobalSpinner />;
   }
 
-  console.log("Auth status:", status);
-  console.log("Auth roles:", roles, "permissions:", permissions);
+  // console.log("Auth status:", status);
+  // console.log("Auth roles:", roles, "permissions:", permissions);
 
   const router = createBrowserRouter([
     {

@@ -145,8 +145,11 @@ const UpdateDepartment = () => {
     <div
       className="card mx-auto shadow-lg"
       style={{
-        borderRadius: "0.75rem",
-        overflow: "hidden",
+        borderTopLeftRadius: "7px",
+        borderTopRightRadius: "7px",
+        borderBottomLeftRadius: "0px",
+        borderBottomRightRadius: "0px",
+        overflow: "hidden", // Prevents content from leaking outside rounded corners
       }}
     >
       {/* Header */}
@@ -250,7 +253,7 @@ const UpdateDepartment = () => {
             <button
               type="button"
               className="btn btn-secondary px-4 ms-2"
-              onClick={() => navigate("/manage-department")}
+              onClick={() => navigate("/dashboard/manage-department")}
               disabled={updateDepartmentStatus === "loading"}
             >
               <i className="fas fa-arrow-left me-1"></i> Cancel

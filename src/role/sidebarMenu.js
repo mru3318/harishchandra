@@ -510,7 +510,7 @@ export const sidebarMenu = [
     children: [
       {
         title: "Add Asset",
-        path: "/dashboard/Asset-list",
+        path: "/dashboard/add-asset",
         permissions: ["ASSET_ADD"],
       },
       {

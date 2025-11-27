@@ -341,7 +341,7 @@
 import { createSlice, createAsyncThunk } from "@reduxjs/toolkit";
 import axios from "axios";
 import Swal from "sweetalert2";
-import { getToken, removeToken } from "../utils/authToken"; // ✅ use friend’s helpers
+import { getToken, setToken, removeToken } from "../utils/authToken"; // ✅ use friend’s helpers
 
 const API_BASE_URL = import.meta.env.VITE_API_BASE_URL;
 
@@ -562,6 +562,8 @@ const authSlice = createSlice({
         if (token && axios?.defaults?.headers) {
           axios.defaults.headers.common["Authorization"] = `Bearer ${token}`;
         }
+        // persist JWT using central helper
+        if (token) setToken(token);
         if (typeof window !== "undefined") {
           localStorage.setItem(
             "auth",
@@ -601,6 +603,8 @@ const authSlice = createSlice({
 
         if (token && axios?.defaults?.headers) {
           axios.defaults.headers.common["Authorization"] = `Bearer ${token}`;
+          // persist JWT when hydrating auth
+          setToken(token);
         }
       })
       .addCase(hydrateAuth.rejected, (state) => {

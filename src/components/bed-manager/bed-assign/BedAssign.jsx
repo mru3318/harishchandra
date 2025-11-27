@@ -1,7 +1,9 @@
 import React, { useState, useEffect, useRef } from "react";
 import { useLocation, useParams } from "react-router-dom";
 import { useDispatch, useSelector } from "react-redux";
-import { fetchAssignData } from "../../../features/bedManagerSlice";
+import { fetchAssignData, postAssign } from "../../../features/bedManagerSlice";
+import { fetchPatients, selectPatients } from "../../../features/commanSlice";
+import Swal from "sweetalert2";
 
 const BedAssign = () => {
   const { id: routeRoomId } = useParams();
@@ -29,19 +31,16 @@ const BedAssign = () => {
     (s) =>
       s.bedManager?.assignData || { bedNumbers: {}, patientIds: {}, room: null }
   );
-  const patientsList = Object.entries(assignData?.patientIds || {}).map(
-    ([internalId, obj]) => ({
-      internalId,
-      code: obj?.hospitalId || "",
-      name: obj?.name || "",
-    })
-  );
+  const commanPatients = useSelector(selectPatients);
+
   const bedOptions = Object.entries(assignData?.bedNumbers || {}).map(
     ([key, val]) => ({ id: key, label: String(val) })
   );
   const [query, setQuery] = useState("");
   const [suggestions, setSuggestions] = useState([]);
+  // console.log("BedAssign: suggestions", suggestions);
   const [showSuggestions, setShowSuggestions] = useState(false);
+  // console.log("BedAssign: showSuggestions", showSuggestions);
   const inputRef = useRef(null);
   const location = useLocation();
   const editPrefill = React.useMemo(
@@ -54,21 +53,37 @@ const BedAssign = () => {
     if (formData.roomId) dispatch(fetchAssignData(formData.roomId));
   }, [dispatch, formData.roomId]);
 
+  // Ensure central patients list is loaded for patient search suggestions
+  useEffect(() => {
+    dispatch(fetchPatients());
+  }, [dispatch]);
+
   // When assign metadata arrives (room info, bed numbers), prefill roomName, roomType and bedNo if in edit mode or only one bed available
   useEffect(() => {
     if (assignData?.room) {
-      setFormData((prev) => ({
-        ...prev,
-        roomName: assignData.room.roomName || prev.roomName,
-        roomType: assignData.room.roomType || prev.roomType,
-      }));
+      setFormData((prev) => {
+        const newRoomName = assignData.room.roomName || prev.roomName;
+        const newRoomType = assignData.room.roomType || prev.roomType;
+        if (prev.roomName === newRoomName && prev.roomType === newRoomType) {
+          return prev;
+        }
+        return { ...prev, roomName: newRoomName, roomType: newRoomType };
+      });
     }
     // If coming from an edit button with bedNo provided in navigation state
     if (editPrefill?.bedNo) {
-      setFormData((prev) => ({ ...prev, bedNo: String(editPrefill.bedNo) }));
+      setFormData((prev) => {
+        const newBed = String(editPrefill.bedNo);
+        if (prev.bedNo === newBed) return prev;
+        return { ...prev, bedNo: newBed };
+      });
     } else if (!formData.bedNo && bedOptions.length === 1) {
       // Auto-select the single available bed number
-      setFormData((prev) => ({ ...prev, bedNo: bedOptions[0].label }));
+      setFormData((prev) => {
+        const newBed = bedOptions[0].label;
+        if (prev.bedNo === newBed) return prev;
+        return { ...prev, bedNo: newBed };
+      });
     }
   }, [assignData, bedOptions, editPrefill, formData.bedNo]);
 
@@ -78,16 +93,22 @@ const BedAssign = () => {
       return;
     }
     const q = query.trim().toLowerCase();
-    const matches = (patientsList || [])
+    // Use central patients list from commanSlice for searching
+    const source = Array.isArray(commanPatients) ? commanPatients : [];
+    const matches = source
+      .map((p) => ({
+        id:
+          p.patient_hospital_id || p.hospitalId || p.hospitalID || p.code || "",
+        name: p.name || `${p.firstName || ""} ${p.lastName || ""}`.trim(),
+      }))
       .filter((p) => {
-        const code = p.code.toLowerCase();
-        const name = p.name.toLowerCase();
+        const code = (p.id || "").toLowerCase();
+        const name = (p.name || "").toLowerCase();
         return code.includes(q) || name.includes(q);
       })
-      .slice(0, 10)
-      .map((p) => ({ id: p.code, name: p.name || p.code }));
+      .slice(0, 10);
     setSuggestions(matches);
-  }, [query, patientsList]);
+  }, [query, commanPatients]);
 
   const handleSelectSuggestion = (s) => {
     setFormData({ ...formData, patientId: s.id }); // hospitalId code
@@ -111,16 +132,76 @@ const BedAssign = () => {
       return;
     }
 
-    // Example: API call simulation
-    console.log("Bed Assigned:", formData);
+    // Build payload expected by backend using assignData mappings
+    const bedKey = bedOptions.find(
+      (b) => String(b.label) === String(formData.bedNo)
+    )?.id;
+    // find internal patient key by matching hospitalId
+    const patientEntry = Object.entries(assignData?.patientIds || {}).find(
+      ([, v]) =>
+        v?.hospitalId === formData.patientId ||
+        v?.hospitalId === String(formData.patientId)
+    );
+    const patientKey = patientEntry ? patientEntry[0] : null;
 
-    setSuccessMsg("Bed assigned successfully!");
-    setErrorMsg("");
-    setFormData({
-      ...formData,
-      bedNo: "",
-      patientId: "",
-    });
+    if (!bedKey) {
+      setErrorMsg("Selected bed not found in room data.");
+      setSuccessMsg("");
+      return;
+    }
+    if (!patientKey) {
+      setErrorMsg("Selected patient not found in room data.");
+      setSuccessMsg("");
+      return;
+    }
+
+    // Build new POST /assign payload as requested
+    const payloadBody = {
+      roomId: Number(formData.roomId) || formData.roomId,
+      bedId: isNaN(Number(bedKey)) ? bedKey : Number(bedKey),
+      patientHospitalId: formData.patientId,
+      patientId: isNaN(Number(patientKey)) ? patientKey : Number(patientKey),
+      assignedAt: new Date().toISOString(),
+    };
+    console.log("BedAssign: submitting payload", payloadBody);
+
+    // dispatch postAssign thunk (POST /assign)
+    dispatch(postAssign(payloadBody))
+      .then((res) => {
+        const status = res?.meta?.requestStatus;
+        if (status === "fulfilled") {
+          Swal.fire({
+            icon: "success",
+            title: "Assigned",
+            text: "Bed assigned successfully.",
+          });
+          setErrorMsg("");
+          // clear selection
+          setFormData((prev) => ({ ...prev, bedNo: "", patientId: "" }));
+          // refetch assign metadata for updated state
+          dispatch(fetchAssignData(formData.roomId));
+        } else {
+          const err = res.payload || res.error || {};
+          const msg =
+            err?.message ||
+            (Array.isArray(err)
+              ? err.map((e) => e.defaultMessage || e.message).join("\n")
+              : JSON.stringify(err));
+          Swal.fire({
+            icon: "error",
+            title: "Assign Failed",
+            text: msg || "Failed to assign bed.",
+          });
+          setErrorMsg(msg || "Failed to assign bed.");
+          setSuccessMsg("");
+        }
+      })
+      .catch((err) => {
+        const text = err?.message || "Failed to assign bed.";
+        Swal.fire({ icon: "error", title: "Assign Failed", text });
+        setErrorMsg(text);
+        setSuccessMsg("");
+      });
   };
 
   return (
@@ -144,7 +225,7 @@ const BedAssign = () => {
       )}
 
       {/* Form */}
-      <div className="container-fluid my-3">
+      <div className="container-fluid">
         <form onSubmit={handleSubmit}>
           <input type="hidden" name="roomId" value={formData.roomId} />
 
@@ -194,14 +275,14 @@ const BedAssign = () => {
             {/* Patient ID (searchable) */}
             <div className="col-md-6 position-relative">
               <label htmlFor="patientSearch" className="form-label fw-semibold">
-                Patient ID <span className="text-danger">*</span>
+                Search Patient <span className="text-danger">*</span>
               </label>
               <input
                 id="patientSearch"
                 name="patientSearch"
                 ref={inputRef}
                 className="form-control"
-                placeholder="Search patient by code (e.g., HM6) or name"
+                placeholder="Search patient by hospital ID (e.g., HM6) or name"
                 value={query}
                 onChange={handleQueryChange}
                 onFocus={() => setShowSuggestions(true)}

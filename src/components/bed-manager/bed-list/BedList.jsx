@@ -12,6 +12,7 @@ import {
 const BedList = () => {
   const dispatch = useDispatch();
   const beds = useSelector(selectBedsList) || [];
+  console.log("Beds List:", beds);
   const bedsStatus = useSelector(selectBedsListStatus);
   const bedsError = useSelector(selectBedsListError);
   const [successMessage, setSuccessMessage] = useState("");
@@ -133,9 +134,7 @@ const BedList = () => {
                             0) > 0 ? (
                             <NavLink
                               className="btn btn-sm btn-success"
-                              to={`/dashboard/bed-assign/${
-                                bed.roomNumber || bed.roomNo || bed.id
-                              }`}
+                              to={`/dashboard/bed-assign/${bed.roomId}`}
                               // onClick={() =>
                               //   handleAssign(
                               //     bed.roomNumber || bed.roomNo || bed.id

@@ -1,8 +1,26 @@
 import { createSlice, createAsyncThunk } from "@reduxjs/toolkit";
 import axios from "axios";
+import { getToken } from "../utils/authToken";
 const API_BASE_URL = import.meta.env.VITE_API_BASE_URL;
 
 const api = axios.create({ baseURL: API_BASE_URL });
+
+// Attach JWT from local storage to every request if available
+api.interceptors.request.use(
+  (config) => {
+    try {
+      const token = getToken();
+      if (token) {
+        config.headers = config.headers || {};
+        config.headers.Authorization = `Bearer ${token}`;
+      }
+    } catch {
+      // ignore token errors
+    }
+    return config;
+  },
+  (error) => Promise.reject(error)
+);
 
 // Add a new room
 export const addRoom = createAsyncThunk(
@@ -129,6 +147,31 @@ export const assignBed = createAsyncThunk(
       const res = await api.post(`/assign/${roomId}`, payload, {
         headers: { "Content-Type": "application/json" },
       });
+      return res.data;
+    } catch (err) {
+      const payload = err.response
+        ? {
+            message:
+              err.response.data?.message || err.response.data || err.message,
+            status: err.response.status,
+            url: err.config?.url,
+          }
+        : { message: err.message || "Network error", code: err.code };
+      return rejectWithValue(payload);
+    }
+  }
+);
+
+// New: Create assignment via POST /assign (body contains roomId, bedId, patientHospitalId, patientId, assignedAt)
+export const postAssign = createAsyncThunk(
+  "bedManager/postAssign",
+  async (payloadBody, { rejectWithValue }) => {
+    try {
+      // include JWT explicitly from local storage for this request
+      const token = getToken();
+      const headers = { "Content-Type": "application/json" };
+      if (token) headers.Authorization = `Bearer ${token}`;
+      const res = await api.post(`/assign`, payloadBody, { headers });
       return res.data;
     } catch (err) {
       const payload = err.response
@@ -334,6 +377,20 @@ const bedManagerSlice = createSlice({
         // backend response may contain message or updated room; not stored here
       })
       .addCase(assignBed.rejected, (state, action) => {
+        state.assignBedStatus = "failed";
+        state.assignBedError = action.payload || action.error.message;
+      });
+
+    // post assign (new)
+    builder
+      .addCase(postAssign.pending, (state) => {
+        state.assignBedStatus = "loading";
+        state.assignBedError = null;
+      })
+      .addCase(postAssign.fulfilled, (state) => {
+        state.assignBedStatus = "succeeded";
+      })
+      .addCase(postAssign.rejected, (state, action) => {
         state.assignBedStatus = "failed";
         state.assignBedError = action.payload || action.error.message;
       });

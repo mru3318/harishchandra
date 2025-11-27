@@ -18,7 +18,7 @@ export default function useSessionTimeout(exp) {
     const timeoutMs = exp - Date.now();
     if (timeoutMs <= 0) return;
 
-    console.log("Session timeout scheduled in", timeoutMs, "ms");
+    // console.log("Session timeout scheduled in", timeoutMs, "ms");
 
     const timerId = setTimeout(() => {
       Swal.fire({
