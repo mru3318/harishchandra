@@ -4,6 +4,7 @@ import {
   requestOtp,
   validateOtp,
   resetPassword,
+  resetForgotPassword,   // ✅ import reset action
   selectForgotStatus,
   selectForgotError,
   selectForgotMessage,
@@ -32,6 +33,11 @@ const ForgotPassword = () => {
   const forgotStep = useSelector(selectForgotStep);
   const navigate = useNavigate();
 
+  // ✅ Reset flow every time this component mounts
+  useEffect(() => {
+    dispatch(resetForgotPassword());
+  }, [dispatch]);
+
   // Countdown timer for resend OTP
   useEffect(() => {
     if (forgotStep === "otp" && countdown > 0) {
@@ -46,21 +52,21 @@ const ForgotPassword = () => {
     dispatch(requestOtp(email))
       .unwrap()
       .then(() => setCountdown(60))
-      .catch(() => {});
+      .catch(() => { });
   };
 
   const handleOtpSubmit = (e) => {
     e.preventDefault();
     dispatch(validateOtp({ email, otp }))
       .unwrap()
-      .catch(() => {});
+      .catch(() => { });
   };
 
   const handleResendOtp = () => {
     dispatch(requestOtp(email))
       .unwrap()
       .then(() => setCountdown(60))
-      .catch(() => {});
+      .catch(() => { });
   };
 
   const handleResetSubmit = (e) => {
@@ -88,7 +94,7 @@ const ForgotPassword = () => {
           state: { message: "Password reset successfully! Please log in." },
         });
       })
-      .catch(() => {});
+      .catch(() => { });
   };
 
   return (
@@ -156,7 +162,7 @@ const ForgotPassword = () => {
                 required
               />
             </div>
-            <button type="submit" className="btn btn-success w-100">
+            <button type="submit" className="btn btn-primary w-100">
               Verify OTP
             </button>
 
@@ -199,9 +205,8 @@ const ForgotPassword = () => {
                 onClick={() => setShowNewPassword(!showNewPassword)}
               >
                 <i
-                  className={`bi ${
-                    showNewPassword ? "bi-eye-slash" : "bi-eye"
-                  }`}
+                  className={`bi ${showNewPassword ? "bi-eye" : "bi-eye-slash"
+                    }`}
                 ></i>
               </span>
             </div>
@@ -224,9 +229,8 @@ const ForgotPassword = () => {
                 onClick={() => setShowConfirmPassword(!showConfirmPassword)}
               >
                 <i
-                  className={`bi ${
-                    showConfirmPassword ? "bi-eye-slash" : "bi-eye"
-                  }`}
+                  className={`bi ${showConfirmPassword ? "bi-eye" : "bi-eye-slash"
+                    }`}
                 ></i>
               </span>
             </div>

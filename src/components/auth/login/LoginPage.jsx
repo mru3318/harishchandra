@@ -5,6 +5,7 @@ import { login, selectIsAuthenticated } from "../../../features/authSlice";
 import { Formik, Form, Field, ErrorMessage } from "formik";
 import * as Yup from "yup";
 import "./LoginPage.css";
+import { resetForgotPassword } from "../../../features/forgotPasswordSlice";
 
 const LoginPage = () => {
   // removed transient inline success popup to avoid flash on redirect
@@ -39,6 +40,24 @@ const LoginPage = () => {
         "Password must be at least 8 characters, include 1 uppercase & 1 special character."
       ),
   });
+
+
+  const handleForgotPasswordClick = () => {
+    dispatch(resetForgotPassword());   // ✅ clear old state
+    navigate("/forgot-password");      // ✅ go to forgot-password route
+  };
+
+
+  useEffect(() => {
+    if (successMessage) {
+      const timer = setTimeout(() => {
+        setSuccessMessage("");
+        window.history.replaceState({}, document.title); // clean up state
+      }, 6000);
+      return () => clearTimeout(timer);
+    }
+  }, [successMessage]);
+
 
   // useEffect(() => {
   //   if (successMessage) {
@@ -105,10 +124,10 @@ const LoginPage = () => {
                   // Handle 401 or invalid credentials gracefully
                   const errMsg =
                     res.payload?.status === 401 ||
-                    res.payload?.message
-                      ?.toLowerCase()
-                      .includes("unauthorized") ||
-                    res.payload?.message?.toLowerCase().includes("invalid")
+                      res.payload?.message
+                        ?.toLowerCase()
+                        .includes("unauthorized") ||
+                      res.payload?.message?.toLowerCase().includes("invalid")
                       ? "Invalid username or password"
                       : "Login failed. Please try again.";
 
@@ -166,9 +185,8 @@ const LoginPage = () => {
                           }
                         >
                           <i
-                            className={`fa ${
-                              showPassword ? "fa-eye" : "fa-eye-slash"
-                            }`}
+                            className={`fa ${showPassword ? "fa-eye" : "fa-eye-slash"
+                              }`}
                           />
                         </button>
                       </div>
@@ -182,13 +200,15 @@ const LoginPage = () => {
                 </div>
 
                 <div className="text-end mb-3">
-                  <NavLink
-                    to="/forgot-password"
-                    className="text-decoration-none text-primary"
+                  <button
+                    type="button"
+                    onClick={handleForgotPasswordClick}
+                    className="btn btn-link text-decoration-none text-primary p-0"
                   >
                     Forgot password?
-                  </NavLink>
+                  </button>
                 </div>
+
 
                 {/* Submit Button */}
                 <button

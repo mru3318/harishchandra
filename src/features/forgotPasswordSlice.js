@@ -1,7 +1,7 @@
 import { createSlice, createAsyncThunk } from "@reduxjs/toolkit";
 import axios from "axios";
+
 const API_BASE_URL = import.meta.env.VITE_API_BASE_URL;
-// Example: export const API_BASE_URL = "http://localhost:8080/api";
 
 /* ======================================================
    1️⃣  REQUEST OTP
@@ -39,8 +39,10 @@ export const validateOtp = createAsyncThunk(
       });
       return res.data; // e.g. "OTP validated successfully"
     } catch (err) {
-      const message =
-        err?.response?.data?.message || err.message || "Network error";
+      const message = Array.isArray(err?.response?.data)
+        ? err.response.data.map(e => e.message).join(", ")
+        : err?.response?.data?.message || err.message || "Network error";
+
       return thunkAPI.rejectWithValue({ message });
     }
   }
@@ -63,11 +65,10 @@ export const resetPassword = createAsyncThunk(
       });
       return res.data || "Password reset successfully";
     } catch (err) {
-      const message =
-        err?.response?.data?.message ||
-        (err?.response?.status === 400
-          ? "Invalid OTP or mismatched passwords"
-          : err.message || "Network error");
+      const message = Array.isArray(err?.response?.data)
+        ? err.response.data.map(e => `${e.field}: ${e.message}`).join(", ")
+        : err?.response?.data?.message || err.message || "Network error";
+
       return thunkAPI.rejectWithValue({ message });
     }
   }
@@ -76,14 +77,16 @@ export const resetPassword = createAsyncThunk(
 /* ======================================================
    🔄 SLICE CONFIGURATION
 ====================================================== */
+const initialState = {
+  status: "idle", // 'idle' | 'loading' | 'succeeded' | 'failed'
+  error: null,
+  message: null,
+  step: "email", // Controls UI flow: 'email' → 'otp' → 'reset'
+};
+
 const forgotPasswordSlice = createSlice({
   name: "forgotPassword",
-  initialState: {
-    status: "idle", // 'idle' | 'loading' | 'succeeded' | 'failed'
-    error: null,
-    message: null,
-    step: "email", // Controls UI flow: 'email' → 'otp' → 'reset'
-  },
+  initialState,
   reducers: {
     clearForgotError(state) {
       state.error = null;
@@ -94,6 +97,8 @@ const forgotPasswordSlice = createSlice({
     setStep(state, action) {
       state.step = action.payload;
     },
+    // ✅ NEW: Reset the whole flow back to initial state
+    resetForgotPassword: () => initialState,
   },
   extraReducers(builder) {
     builder
@@ -156,8 +161,12 @@ const forgotPasswordSlice = createSlice({
 /* ======================================================
    🧾 EXPORTS
 ====================================================== */
-export const { clearForgotError, clearForgotMessage, setStep } =
-  forgotPasswordSlice.actions;
+export const {
+  clearForgotError,
+  clearForgotMessage,
+  setStep,
+  resetForgotPassword, // ✅ export reset action
+} = forgotPasswordSlice.actions;
 
 export default forgotPasswordSlice.reducer;
 

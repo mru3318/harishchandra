@@ -341,59 +341,100 @@ export const sidebarMenu = [
     ],
     children: [
       {
-        title: "Add Birth Report",
-        path: "/dashboard/baby-birth-certificate",
-        roles: ["SUPER_ADMIN", "ADMIN", "DOCTOR", "RECEPTIONIST", "HEADNURSE"],
-        permissions: ["BIRTH_REPORT_ADD"],
+        title: "Birth Reports",
+        collapseId: "birth-reports-section",
+        children: [
+          {
+            title: "Add Birth Report",
+            path: "/dashboard/baby-birth-certificate",
+            roles: [
+              "SUPER_ADMIN",
+              "ADMIN",
+              "DOCTOR",
+              "RECEPTIONIST",
+              "HEADNURSE",
+            ],
+            permissions: ["BIRTH_REPORT_ADD"],
+          },
+          {
+            title: "Manage Birth Reports",
+            path: "/dashboard/manage-birth-certificates",
+            roles: [
+              "SUPER_ADMIN",
+              "ADMIN",
+              "DOCTOR",
+              "RECEPTIONIST",
+              "HEADNURSE",
+            ],
+            permissions: ["REPORT_LIST"],
+          },
+        ],
       },
       {
-        title: "Manage Birth Reports",
-        path: "/dashboard/manage-birth-certificates",
-        roles: ["SUPER_ADMIN", "ADMIN", "DOCTOR", "RECEPTIONIST", "HEADNURSE"],
-        permissions: ["REPORT_LIST"],
+        title: "Death Reports",
+        collapseId: "death-reports-section",
+        children: [
+          {
+            title: "Add Death Report",
+            path: "/dashboard/death-certificate",
+            roles: [
+              "SUPER_ADMIN",
+              "ADMIN",
+              "DOCTOR",
+              "RECEPTIONIST",
+              "HEADNURSE",
+            ],
+            permissions: ["DEATH_REPORT_ADD"],
+          },
+          {
+            title: "Manage Death Reports",
+            path: "/dashboard/manage-death-certificates",
+            roles: [
+              "SUPER_ADMIN",
+              "ADMIN",
+              "DOCTOR",
+              "RECEPTIONIST",
+              "HEADNURSE",
+            ],
+            permissions: ["REPORT_LIST"],
+          },
+        ],
       },
-      {
-        title: "Add Death Report",
-        path: "/dashboard/death-certificate",
-        roles: ["SUPER_ADMIN", "ADMIN", "DOCTOR", "RECEPTIONIST", "HEADNURSE"],
-        permissions: ["DEATH_REPORT_ADD"],
-      },
-      {
-        title: "Manage Death Reports",
-        path: "/dashboard/manage-death-certificates",
-        roles: ["SUPER_ADMIN", "ADMIN", "DOCTOR", "RECEPTIONIST", "HEADNURSE"],
-        permissions: ["REPORT_LIST"],
-      },
-
       {
         title: "Pathology Reports",
         collapseId: "pathology-reports",
+        roles: ["SUPER_ADMIN", "ADMIN", "LABORATORIST"], // ⬅️ फक्त या roles ला दाखवायचे
         children: [
           {
             title: "Add New Report",
             path: "/dashboard/add-pathology-report",
             permissions: ["PATHLAB_REPORT_ADD"],
+            roles: ["SUPER_ADMIN", "ADMIN", "LABORATORIST"], // ⬅️ optional पण recommend
           },
           {
             title: "Manage Reports",
             path: "/dashboard/manage-pathology-reports",
             permissions: ["LAB_REPORT_LIST", "PATHLAB_REPORT_MANAGE"],
+            roles: ["SUPER_ADMIN", "ADMIN", "LABORATORIST"], // ⬅️ optional पण recommend
           },
         ],
       },
       {
         title: "Radiology Reports",
         collapseId: "radiology-reports",
+        roles: ["SUPER_ADMIN", "ADMIN", "LABORATORIST"], // ⬅️ फक्त या roles ला दाखवायचे
         children: [
           {
             title: "Add New Report",
             path: "/dashboard/add-radiology-report",
             permissions: ["RADIOLOGY_REPORT_ADD"],
+            roles: ["SUPER_ADMIN", "ADMIN", "LABORATORIST"], // ⬅️ optional पण recommend
           },
           {
             title: "Manage Reports",
             path: "/dashboard/manage-radiology-reports",
             permissions: ["RADIOLOGY_REPORT_MANAGE", "LAB_REPORT_LIST"],
+            roles: ["SUPER_ADMIN", "ADMIN", "LABORATORIST"], // ⬅️ optional पण recommend
           },
         ],
       },

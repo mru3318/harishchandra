@@ -140,7 +140,8 @@ export const AssignmentStatus = [
 ];
 
 export const QualificationOptions = {
-  3: [ // Doctor
+  3: [
+    // Doctor
     { value: "", label: "Select Qualification" },
     { value: "MBBS", label: "MBBS" },
     { value: "MD", label: "MD" },
@@ -154,7 +155,8 @@ export const QualificationOptions = {
     { value: "BPT", label: "BPT" },
     { value: "MPT", label: "MPT" },
   ],
-  7: [ // HR
+  7: [
+    // HR
     { value: "", label: "Select Qualification" },
     { value: "10th", label: "10th Pass" },
     { value: "12th", label: "12th Pass" },
@@ -163,28 +165,32 @@ export const QualificationOptions = {
     { value: "MBA", label: "MBA" },
     { value: "BBA", label: "BBA" },
   ],
-  10: [ // Receptionist
+  10: [
+    // Receptionist
     { value: "", label: "Select Qualification" },
     { value: "10th", label: "10th Pass" },
     { value: "12th", label: "12th Pass" },
     { value: "Graduation", label: "Graduation" },
     { value: "Diploma", label: "Diploma" },
   ],
-  5: [ // Pharmacist
+  5: [
+    // Pharmacist
     { value: "", label: "Select Qualification" },
     { value: "D.Pharm", label: "D.Pharm" },
     { value: "B.Pharm", label: "B.Pharm" },
     { value: "M.Pharm", label: "M.Pharm" },
     { value: "Pharm.D", label: "Pharm.D" },
   ],
-  4: [ // Head Nurse
+  4: [
+    // Head Nurse
     { value: "", label: "Select Qualification" },
     { value: "Diploma in Nursing", label: "Diploma in Nursing" },
     { value: "BSc Nursing", label: "BSc Nursing" },
     { value: "MSc Nursing", label: "MSc Nursing" },
     { value: "GNM", label: "GNM" },
   ],
-  6: [ // Accountant
+  6: [
+    // Accountant
     { value: "", label: "Select Qualification" },
     { value: "B.Com", label: "B.Com" },
     { value: "M.Com", label: "M.Com" },
@@ -192,13 +198,15 @@ export const QualificationOptions = {
     { value: "CMA", label: "CMA" },
     { value: "MBA Finance", label: "MBA Finance" },
   ],
-  9: [ // Insurer
+  9: [
+    // Insurer
     { value: "", label: "Select Qualification" },
     { value: "Graduation", label: "Graduation" },
     { value: "MBA", label: "MBA" },
     { value: "Insurance Certification", label: "Insurance Certification" },
   ],
-  8: [ // Laboratorist
+  8: [
+    // Laboratorist
     { value: "", label: "Select Qualification" },
     { value: "DMLT", label: "DMLT" },
     { value: "BMLT", label: "BMLT" },
@@ -207,3 +215,101 @@ export const QualificationOptions = {
     { value: "MSc MLT", label: "MSc MLT" },
   ],
 };
+
+export const CHRONIC_CONDITIONS = [
+  { value: "DIABETES_TYPE_2", label: "Diabetes Mellitus Type 2", icd10: "E11" },
+  { value: "DIABETES_TYPE_1", label: "Diabetes Mellitus Type 1", icd10: "E10" },
+  {
+    value: "HYPERTENSION",
+    label: "Hypertension (High Blood Pressure)",
+    icd10: "I10",
+  },
+  {
+    value: "CORONARY_ARTERY_DISEASE",
+    label: "Coronary Artery Disease (CAD)",
+    icd10: "I25",
+  },
+  { value: "HEART_FAILURE", label: "Heart Failure", icd10: "I50" },
+  {
+    value: "HYPERLIPIDEMIA",
+    label: "Hyperlipidemia (High Cholesterol)",
+    icd10: "E78",
+  },
+  { value: "OBESITY", label: "Obesity", icd10: "E66" },
+
+  { value: "ASTHMA", label: "Asthma", icd10: "J45" },
+  {
+    value: "COPD",
+    label: "Chronic Obstructive Pulmonary Disease",
+    icd10: "J44",
+  },
+  { value: "PULMONARY_FIBROSIS", label: "Pulmonary Fibrosis", icd10: "J84" },
+  { value: "BRONCHIECTASIS", label: "Bronchiectasis", icd10: "J47" },
+
+  {
+    value: "STROKE",
+    label: "Stroke (Post-stroke complications)",
+    icd10: "I63",
+  },
+  { value: "EPILEPSY", label: "Epilepsy", icd10: "G40" },
+  { value: "PARKINSONS_DISEASE", label: "Parkinson’s Disease", icd10: "G20" },
+  { value: "DEMENTIA", label: "Alzheimer’s Disease / Dementia", icd10: "F03" },
+  { value: "MIGRAINE", label: "Migraine / Chronic Headache", icd10: "G43" },
+
+  { value: "THYROID_DISORDER", label: "Thyroid Disorders", icd10: "E03" },
+  { value: "PCOS", label: "Polycystic Ovary Syndrome (PCOS)", icd10: "E28" },
+  { value: "OSTEOPOROSIS", label: "Osteoporosis", icd10: "M81" },
+
+  {
+    value: "CHRONIC_KIDNEY_DISEASE",
+    label: "Chronic Kidney Disease (CKD)",
+    icd10: "N18",
+  },
+  { value: "LIVER_CIRRHOSIS", label: "Liver Cirrhosis", icd10: "K74" },
+  { value: "HEPATITIS_B_OR_C", label: "Hepatitis B/C (Chronic)", icd10: "B18" },
+
+  { value: "IBS", label: "Irritable Bowel Syndrome (IBS)", icd10: "K58" },
+  { value: "IBD", label: "Inflammatory Bowel Disease (IBD)", icd10: "K50" },
+  {
+    value: "CHRONIC_CONSTIPATION",
+    label: "Chronic Constipation",
+    icd10: "K59",
+  },
+  {
+    value: "GERD",
+    label: "Gastroesophageal Reflux Disease (GERD)",
+    icd10: "K21",
+  },
+
+  { value: "OSTEOARTHRITIS", label: "Osteoarthritis", icd10: "M19" },
+  {
+    value: "RHEUMATOID_ARTHRITIS",
+    label: "Rheumatoid Arthritis",
+    icd10: "M06",
+  },
+  { value: "SPONDYLITIS", label: "Spondylitis", icd10: "M45" },
+  { value: "CHRONIC_BACK_PAIN", label: "Chronic Back Pain", icd10: "M54" },
+
+  { value: "BREAST_CANCER", label: "Breast Cancer", icd10: "C50" },
+  { value: "PROSTATE_CANCER", label: "Prostate Cancer", icd10: "C61" },
+  { value: "CERVICAL_CANCER", label: "Cervical Cancer", icd10: "C53" },
+  { value: "LUNG_CANCER", label: "Lung Cancer", icd10: "C34" },
+  { value: "COLORECTAL_CANCER", label: "Colorectal Cancer", icd10: "C18" },
+
+  {
+    value: "TUBERCULOSIS",
+    label: "Tuberculosis (Latent or MDR-TB)",
+    icd10: "A15",
+  },
+  { value: "HIV", label: "HIV/AIDS", icd10: "B20" },
+  {
+    value: "LEPROSY",
+    label: "Leprosy (Post-treatment complications)",
+    icd10: "A30",
+  },
+
+  { value: "DEPRESSION", label: "Depression", icd10: "F32" },
+  { value: "ANXIETY", label: "Anxiety Disorders", icd10: "F41" },
+  { value: "BIPOLAR_DISORDER", label: "Bipolar Disorder", icd10: "F31" },
+  { value: "SCHIZOPHRENIA", label: "Schizophrenia", icd10: "F20" },
+];

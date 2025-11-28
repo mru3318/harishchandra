@@ -185,19 +185,20 @@ const Layout = () => {
   };
 
   const isVisibleItem = (item) => {
-    // Show item if user has the required role OR the required permission(s).
-    // Previously both role AND permission were required which hid role-only
-    // menus for users (like HEADNURSE) that rely on role membership instead
-    // of explicit permission flags.
-    const gate = hasRole(item.roles) && hasPermission(item.permissions);
-    if (!gate) return false;
+    // Require BOTH role and permission checks to pass for an item to be visible.
+    // If an item has no explicit roles or permissions defined, that check
+    // defaults to true (see hasRole / hasPermission helpers).
+    const roleOk = hasRole(item.roles);
+    const permOk = hasPermission(item.permissions);
+    if (!roleOk || !permOk) return false;
+
+    // If the item has children, ensure at least one child is visible
+    // using the same strict logic. This prevents showing a parent menu
+    // when none of its children are accessible.
     if (Array.isArray(item.children) && item.children.length > 0) {
-      // If the parent item matches by role, show it even if children
-      // themselves require permissions the user doesn't have. Otherwise,
-      // show the parent only when at least one child is visible.
-      if (hasRole(item.roles)) return true;
       return item.children.some((child) => isVisibleItem(child));
     }
+
     return true;
   };
 
@@ -211,7 +212,7 @@ const Layout = () => {
     return (
       <ul className="nav flex-column sub-menu">
         {children
-          .filter((child) => isVisibleItem(child) || hasRole(parentRoles))
+          .filter((child) => isVisibleItem(child))
           .map((child) => {
             const hasKids =
               Array.isArray(child.children) && child.children.length > 0;
@@ -235,11 +236,7 @@ const Layout = () => {
                     style={{ listStyle: "none" }}
                   >
                     {child.children
-                      .filter(
-                        (g) =>
-                          isVisibleItem(g) ||
-                          hasRole(child.roles || parentRoles)
-                      )
+                      .filter((g) => isVisibleItem(g))
                       .map((g) => (
                         <li key={`${nestedId}-${slug(g.title)}`}>
                           {g.path ? (
