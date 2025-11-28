@@ -7,7 +7,7 @@ import {
   selectAmbulancesError,
 } from "../../../features/ambulanceSlice";
 
-const AmbulanceTable = () => {
+const AmbulanceTable = ({ refreshKey }) => {
   const dispatch = useDispatch();
   const ambulances = useSelector(selectAmbulances) || [];
   const status = useSelector(selectAmbulancesStatus);
@@ -18,6 +18,14 @@ const AmbulanceTable = () => {
       dispatch(fetchAmbulances());
     }
   }, [dispatch, status]);
+
+  // If parent requests a refresh (refreshKey changes), re-fetch ambulances.
+  useEffect(() => {
+    if (typeof refreshKey !== "undefined") {
+      dispatch(fetchAmbulances());
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [refreshKey]);
 
   return (
     <table className="table table-bordered table-striped">

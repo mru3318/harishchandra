@@ -16,6 +16,7 @@ import noticeReducer from "../features/noticeSlice";
 import commanReducer from "../features/commanSlice";
 import appointmentReducer from "../features/appointmentSlice";
 import doctorByDepartmentReducer from "../../src/features/doctorByDepartmentSlice";
+import allocatedBedsReducer from "../features/allocatedBedsSlice";
 
 export const store = configureStore({
   reducer: {
@@ -36,6 +37,7 @@ export const store = configureStore({
     comman: commanReducer,
     appointment: appointmentReducer,
     doctorsByDepartment: doctorByDepartmentReducer,
+    allocatedBeds: allocatedBedsReducer,
   },
 });
 

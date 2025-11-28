@@ -1,7 +1,11 @@
 import React, { useState, useEffect, useRef } from "react";
 import { useLocation, useParams } from "react-router-dom";
 import { useDispatch, useSelector } from "react-redux";
-import { fetchAssignData, postAssign } from "../../../features/bedManagerSlice";
+import {
+  fetchAssignData,
+  postAssign,
+  fetchBedsList,
+} from "../../../features/bedManagerSlice";
 import { fetchPatients, selectPatients } from "../../../features/commanSlice";
 import Swal from "sweetalert2";
 
@@ -180,6 +184,8 @@ const BedAssign = () => {
           setFormData((prev) => ({ ...prev, bedNo: "", patientId: "" }));
           // refetch assign metadata for updated state
           dispatch(fetchAssignData(formData.roomId));
+          // refresh beds list so vacant counts update across the app
+          dispatch(fetchBedsList());
         } else {
           const err = res.payload || res.error || {};
           const msg =

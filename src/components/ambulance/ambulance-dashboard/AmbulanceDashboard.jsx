@@ -8,6 +8,7 @@ import ViewAmbulanceAssignmentCompletedTable from "../view-ambulance-assignment-
 const AmbulanceDashboard = () => {
   const [activeTab, setActiveTab] = useState("ambulance");
   const [tabData, setTabData] = useState("Loading...");
+  const [refreshKey, setRefreshKey] = useState(0);
 
   // Fetch content from backend when tab changes
   useEffect(() => {
@@ -112,7 +113,15 @@ const AmbulanceDashboard = () => {
         <div className="tab-content mt-3">
           {activeTab === "ambulance" ? (
             <div className="tab-pane fade show active">
-              <AmbulanceTable />
+              <div className="d-flex justify-content-end mb-2">
+                <button
+                  className="btn btn-sm btn-outline-primary"
+                  onClick={() => setRefreshKey((k) => k + 1)}
+                >
+                  Refresh
+                </button>
+              </div>
+              <AmbulanceTable refreshKey={refreshKey} />
             </div>
           ) : activeTab === "driver" ? (
             <div className="tab-pane fade show active">

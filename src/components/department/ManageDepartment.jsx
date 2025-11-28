@@ -5,10 +5,37 @@ import {
   fetchAllDepartments,
 } from "../../features/departmentSlice";
 import { NavLink } from "react-router-dom";
+import {
+  selectAuthRoles,
+  selectAuthPermissions,
+} from "../../features/authSlice";
 import Swal from "sweetalert2";
 
 const ManageDepartment = () => {
   const dispatch = useDispatch();
+
+  const authRoles = useSelector(selectAuthRoles) || [];
+  const userPerms = useSelector(selectAuthPermissions) || [];
+
+  const normalizedRoles = authRoles
+    .map((r) => String(r || "").toUpperCase())
+    .map((r) => r.replace(/^ROLE_/, ""))
+    .map((r) => r.replace(/[^A-Z0-9]/g, ""));
+
+  const hasRole = (allowedRoles) => {
+    if (!Array.isArray(allowedRoles) || allowedRoles.length === 0) return true;
+    const allowed = allowedRoles
+      .map((r) => String(r || "").toUpperCase())
+      .map((r) => r.replace(/^ROLE_/, ""))
+      .map((r) => r.replace(/[^A-Z0-9]/g, ""));
+    return allowed.some((r) => normalizedRoles.includes(r));
+  };
+
+  const hasPermission = (requiredPerms) => {
+    if (!Array.isArray(requiredPerms) || requiredPerms.length === 0)
+      return true;
+    return requiredPerms.some((p) => userPerms.includes(p));
+  };
 
   // Get departments from Redux store
   const {
@@ -127,9 +154,12 @@ const ManageDepartment = () => {
                   <th scope="col">Name</th>
                   <th scope="col">Head</th>
                   <th scope="col">Description</th>
-                  <th scope="col" className="text-center">
-                    Actions
-                  </th>
+                  {(hasPermission(["DEPARTMENT_DELETE"]) ||
+                    hasRole(["SUPER_ADMIN", "ADMIN"])) && (
+                    <th scope="col" className="text-center">
+                      Actions
+                    </th>
+                  )}
                 </tr>
               </thead>
               <tbody>
@@ -139,21 +169,26 @@ const ManageDepartment = () => {
                     <td>{dept.department_name}</td>
                     <td>{dept.department_head}</td>
                     <td>{dept.description}</td>
-                    <td className="text-center">
-                      <NavLink
-                        to={`/dashboard/update-department/${dept.id}`}
-                        className="btn btn-sm text-white"
-                        style={{ backgroundColor: "#01C0C8" }}
-                      >
-                        <i className="fas fa-pen-to-square me-1"></i>
-                      </NavLink>
-                      <NavLink
-                        onClick={() => handleDelete(dept.id)}
-                        className="btn btn-sm btn-danger ms-2"
-                      >
-                        <i className="fas fa-trash me-1"></i>
-                      </NavLink>
-                    </td>
+                    {(hasPermission(["DEPARTMENT_UPDATE"]) ||
+                      hasRole(["SUPER_ADMIN", "ADMIN"])) && (
+                      <td className="text-center">
+                        <NavLink
+                          to={`/dashboard/update-department/${dept.id}`}
+                          className="btn btn-sm text-white"
+                          style={{ backgroundColor: "#01C0C8" }}
+                        >
+                          <i className="fas fa-pen-to-square me-1"></i>
+                        </NavLink>
+
+                        <button
+                          type="button"
+                          onClick={() => handleDelete(dept.id)}
+                          className="btn btn-sm btn-danger ms-2"
+                        >
+                          <i className="fas fa-trash me-1"></i>
+                        </button>
+                      </td>
+                    )}
                   </tr>
                 ))}
               </tbody>

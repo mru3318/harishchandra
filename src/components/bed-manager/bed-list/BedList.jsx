@@ -8,6 +8,10 @@ import {
   selectBedsListStatus,
   selectBedsListError,
 } from "../../../features/bedManagerSlice";
+import {
+  selectAuthRoles,
+  selectAuthPermissions,
+} from "../../../features/authSlice";
 
 const BedList = () => {
   const dispatch = useDispatch();
@@ -17,6 +21,28 @@ const BedList = () => {
   const bedsError = useSelector(selectBedsListError);
   const [successMessage, setSuccessMessage] = useState("");
   const [errorMessage, setErrorMessage] = useState("");
+  const authRoles = useSelector(selectAuthRoles) || [];
+  const userPerms = useSelector(selectAuthPermissions) || [];
+
+  const normalizedRoles = authRoles
+    .map((r) => String(r || "").toUpperCase())
+    .map((r) => r.replace(/^ROLE_/, ""))
+    .map((r) => r.replace(/[^A-Z0-9]/g, ""));
+
+  const hasRole = (allowedRoles) => {
+    if (!Array.isArray(allowedRoles) || allowedRoles.length === 0) return true;
+    const allowed = allowedRoles
+      .map((r) => String(r || "").toUpperCase())
+      .map((r) => r.replace(/^ROLE_/, ""))
+      .map((r) => r.replace(/[^A-Z0-9]/g, ""));
+    return allowed.some((r) => normalizedRoles.includes(r));
+  };
+
+  const hasPermission = (requiredPerms) => {
+    if (!Array.isArray(requiredPerms) || requiredPerms.length === 0)
+      return true;
+    return requiredPerms.some((p) => userPerms.includes(p));
+  };
 
   useEffect(() => {
     if (bedsStatus === "idle") dispatch(fetchBedsList());
@@ -44,12 +70,20 @@ const BedList = () => {
         {/* Header */}
         <div className="card-header d-flex justify-content-between align-items-center bg-light">
           <h5 className="mb-0">Vacant Beds</h5>
-          <NavLink
-            to="/dashboard/allotted-beds"
-            className="btn btn-sm btn-success"
-          >
-            Allotted Beds
-          </NavLink>
+          {(hasPermission([
+            "BED_LIST",
+            "BED_ASSIGN",
+            "BED_VACANT",
+            "BED_RELEASE",
+          ]) ||
+            hasRole(["SUPER_ADMIN", "ADMIN", "HEADNURSE"])) && (
+            <NavLink
+              to="/dashboard/allotted-beds"
+              className="btn btn-sm btn-success"
+            >
+              Allotted Beds
+            </NavLink>
+          )}
         </div>
 
         {/* Success Message */}

@@ -1,54 +1,76 @@
-import React from "react";
+import React, { useEffect } from "react";
 import { Link } from "react-router-dom";
+import { useDispatch, useSelector } from "react-redux";
+import {
+  fetchAllocatedBeds,
+  releaseBed,
+} from "../../../features/allocatedBedsSlice";
+import Swal from "sweetalert2";
 
 const AllottedBeds = () => {
+  const dispatch = useDispatch();
+
+  const { data, loading, error } = useSelector((state) => state.allocatedBeds);
+
+  useEffect(() => {
+    dispatch(fetchAllocatedBeds());
+  }, [dispatch]);
+
+  // 🔹 Release API Call
+  const handleRelease = (id) => {
+    Swal.fire({
+      title: "Are you sure?",
+      text: "This will release the bed and update availability.",
+      icon: "warning",
+      showCancelButton: true,
+      confirmButtonColor: "#3085d6",
+      cancelButtonColor: "#d33",
+      confirmButtonText: "Yes, release it",
+    }).then((result) => {
+      if (result.isConfirmed) {
+        dispatch(releaseBed(id))
+          .then(() => {
+            dispatch(fetchAllocatedBeds()); // refresh list
+            Swal.fire({
+              icon: "success",
+              title: "Released",
+              text: "Bed has been released.",
+              timer: 1500,
+              showConfirmButton: false,
+            });
+          })
+          .catch((err) => {
+            Swal.fire({
+              icon: "error",
+              title: "Error",
+              text: err?.message || "Failed to release bed.",
+            });
+          });
+      }
+    });
+  };
+
   return (
     <div className="container my-4 p-0 m-0">
       <div className="card-border" id="tableSection">
-        {/* Header */}
         <div className="card-header d-flex justify-content-between align-items-center">
           <h5 className="mb-0">Allotted Beds</h5>
 
-          <div className="d-flex gap-2">
-            <Link
-              to="/bed-list"
-              className="btn btn-sm btn-success text-white text-decoration-none"
-            >
-              Vacant Beds
-            </Link>
-          </div>
+          <Link
+            to="/dashboard/bed-list"
+            className="btn btn-sm btn-success text-white text-decoration-none"
+          >
+            Vacant Beds
+          </Link>
         </div>
 
-        {/* Messages */}
-        <div
-          id="errorMsg"
-          style={{
-            color: "red",
-            fontWeight: "bold",
-            marginBottom: "15px",
-            display: "none",
-          }}
-        >
-          <p>Error message here</p>
-        </div>
+        {error && <div style={{ color: "red" }}>{error}</div>}
 
-        <div
-          id="successMsg"
-          style={{
-            color: "green",
-            fontWeight: "bold",
-            marginBottom: "15px",
-            display: "none",
-          }}
-        >
-          <p>Success message here</p>
-        </div>
+        {loading && <p>Loading...</p>}
 
-        {/* Table */}
-        <div class="container">
+        <div className="container">
           <div className="card-body">
             <div className="table-responsive">
-              <h4>Allotted Beds</h4>
               <table className="table table-sm table-striped table-bordered table-hover align-middle">
                 <thead className="table-light">
                   <tr>
@@ -61,31 +83,31 @@ const AllottedBeds = () => {
                   </tr>
                 </thead>
                 <tbody>
-                  {/* Example Rows */}
-                  <tr>
-                    <td>1</td>
-                    <td>B-101</td>
-                    <td>General Ward</td>
-                    <td>Shared</td>
-                    <td>John Doe</td>
-                    <td>
-                      <Link to="/release-bed" className="btn btn-sm btn-danger">
-                        Release
-                      </Link>
-                    </td>
-                  </tr>
-                  <tr>
-                    <td>2</td>
-                    <td>B-102</td>
-                    <td>Private Room</td>
-                    <td>Single</td>
-                    <td>Jane Smith</td>
-                    <td>
-                      <Link to="/release-bed" className="btn btn-sm btn-danger">
-                        Release
-                      </Link>
-                    </td>
-                  </tr>
+                  {data.length === 0 ? (
+                    <tr>
+                      <td colSpan="6" className="text-center">
+                        No allocated beds
+                      </td>
+                    </tr>
+                  ) : (
+                    data.map((bed, index) => (
+                      <tr key={bed.bedAssignmentId}>
+                        <td>{index + 1}</td>
+                        <td>{bed.bedNumber}</td>
+                        <td>{bed.roomName}</td>
+                        <td>{bed.roomType}</td>
+                        <td>{bed.patientName}</td>
+                        <td>
+                          <button
+                            className="btn btn-sm btn-danger"
+                            onClick={() => handleRelease(bed.bedAssignmentId)}
+                          >
+                            Release
+                          </button>
+                        </td>
+                      </tr>
+                    ))
+                  )}
                 </tbody>
               </table>
             </div>
