@@ -9,6 +9,7 @@ import {
   selectFetchPrescriptionsError,
 } from "../../../features/priscriptionSlice";
 import { NavLink } from "react-router-dom";
+import "./ManagePrescription.css";
 
 export default function ManagePrescription() {
   const dispatch = useDispatch();
