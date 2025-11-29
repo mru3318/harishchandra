@@ -180,13 +180,15 @@ const HealthPackages = () => {
 
                     <p className="card-text fw-semibold">Price: {pkg.price}</p>
                     <NavLink
-                      className="btn btn-primary me-2"
+                      className="button btn-primary me-2"
+                      style={{ textDecoration: "none" }}
                       to={`/dashboard/update-health-package/${pkg.id}`}
                     >
                       <i className="fa-solid fa-pen-to-square me-1"></i>Edit
                     </NavLink>
                     <button
-                      className="btn btn-danger"
+                      className="button btn-danger"
+                      style={{ backgroundColor: "#db2100" }}
                       onClick={() => handleDelete(pkg.id, pkg.name)}
                     >
                       <i className="fa-solid fa-trash-can me-1"></i>Delete

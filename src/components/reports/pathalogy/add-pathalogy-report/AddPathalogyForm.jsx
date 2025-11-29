@@ -1,4 +1,17 @@
 import React, { useState, useRef } from "react";
+import { useDispatch, useSelector } from "react-redux";
+import Swal from "sweetalert2";
+import {
+  createPathology,
+  resetCreateState,
+  selectCreatePathologyStatus,
+  selectCreatePathologyError,
+} from "../../../../features/pathologySlice";
+import {
+  fetchPatients,
+  selectPatients,
+  selectPatientsStatus,
+} from "../../../../features/commanSlice";
 
 export default function AddPathalogyForm() {
   const THEME = "#01C0C8";
@@ -26,14 +39,23 @@ export default function AddPathalogyForm() {
     age: "",
     gender: "",
     contact: "",
-    patientId: "",
+    patientHospitalId: "",
     doctor: "",
+    doctorId: "",
+    labTechnicianId: "",
     email: "",
     sampleType: "Blood",
     collectedOn: "",
     collectedTime: "",
     receivedBy: "",
   });
+  const dispatch = useDispatch();
+  const patients = useSelector(selectPatients) || [];
+  const patientsStatus = useSelector(selectPatientsStatus);
+
+  const [patientQuery, setPatientQuery] = useState("");
+  const [patientSuggestions, setPatientSuggestions] = useState([]);
+  const [showPatientSuggestions, setShowPatientSuggestions] = useState(false);
   const [valid, setValid] = useState({});
   const [isVisible, setIsVisible] = useState(true);
   const printRef = useRef();
@@ -49,8 +71,90 @@ export default function AddPathalogyForm() {
     if (id === "patientName" && /[^a-zA-Z\s.]/.test(value)) return;
     if (id === "age" && /[^0-9]/.test(value)) return;
     if (id === "contact" && (/[^0-9]/.test(value) || value.length > 10)) return;
-    if (id === "patientId" && /[^a-zA-Z0-9-]/.test(value)) return;
+    if (id === "patientHospitalId" && /[^a-zA-Z0-9-]/.test(value)) return;
     setForm((prev) => ({ ...prev, [id]: value }));
+    if (id === "patientName" || id === "patientHospitalId") {
+      const q = value.trim().toLowerCase();
+      setPatientQuery(q);
+      setShowPatientSuggestions(!!q);
+    }
+  };
+
+  // Load patients for suggestions
+  React.useEffect(() => {
+    if (patientsStatus === "idle") dispatch(fetchPatients());
+  }, [dispatch, patientsStatus]);
+
+  // Update suggestions when patientQuery or patients change
+  React.useEffect(() => {
+    if (!patientQuery) return setPatientSuggestions([]);
+    const q = patientQuery.toLowerCase();
+    const matches = (patients || [])
+      .map((p) => ({
+        raw: p,
+        id:
+          p.patient_hospital_id || p.hospitalId || p.hospitalID || p.code || "",
+        name: p.name || `${p.firstName || ""} ${p.lastName || ""}`.trim(),
+      }))
+      .filter(
+        (p) =>
+          (p.id || "").toLowerCase().includes(q) ||
+          (p.name || "").toLowerCase().includes(q)
+      )
+      .slice(0, 10);
+    setPatientSuggestions(matches);
+  }, [patientQuery, patients]);
+
+  const handleSelectPatient = (p) => {
+    const raw = p.raw || p;
+    const hospId =
+      raw.patient_hospital_id ||
+      raw.hospitalId ||
+      raw.hospitalID ||
+      raw.code ||
+      "";
+    const name =
+      raw.name || `${raw.firstName || ""} ${raw.lastName || ""}`.trim();
+    // determine age: prefer explicit age, fallback to ageYears, then derive from dob if present
+    let ageVal = raw.age || raw.ageYears;
+    if (!ageVal && raw.dob) {
+      const bd = new Date(raw.dob);
+      if (!isNaN(bd.getTime())) {
+        const diff = Date.now() - bd.getTime();
+        ageVal = Math.floor(diff / (365.25 * 24 * 60 * 60 * 1000));
+      }
+    }
+
+    // normalize gender to match select options (Male/Female/Other)
+    let genderVal = (raw.gender && String(raw.gender)) || "";
+    if (genderVal) {
+      const g = genderVal.toLowerCase();
+      if (g.startsWith("m")) genderVal = "Male";
+      else if (g.startsWith("f")) genderVal = "Female";
+      else genderVal = "Other";
+    }
+
+    // contact may be present in different fields (contactInfo, contactNumber, mobile, phone)
+    const contactVal =
+      raw.contactInfo ||
+      raw.contactNumber ||
+      raw.mobile ||
+      raw.phone ||
+      raw.contact ||
+      "";
+
+    setForm((prev) => ({
+      ...prev,
+      patientHospitalId: hospId || String(raw.id || ""),
+      patientName: name,
+      age: ageVal || prev.age,
+      gender: genderVal || prev.gender,
+      contact: contactVal || prev.contact,
+      email: raw.email || prev.email,
+    }));
+    setShowPatientSuggestions(false);
+    setPatientSuggestions([]);
+    setPatientQuery("");
   };
 
   const handleAddTest = () =>
@@ -91,7 +195,7 @@ export default function AddPathalogyForm() {
       age: /^[0-9]{1,3}$/,
       gender: /.+/,
       contact: /^[0-9]{10}$/,
-      patientId: /^[A-Za-z0-9-]{3,30}$/,
+      patientHospitalId: /^[A-Za-z0-9-]{3,30}$/,
       email: /^[^\s@]+@[^\s@]+\.[^\s@]+$/,
     };
     Object.entries(required).forEach(([k, regex]) => {
@@ -105,7 +209,80 @@ export default function AddPathalogyForm() {
   };
 
   const handleSave = () => {
-    if (validateAll()) alert("Form saved successfully!");
+    if (!validateAll()) return;
+
+    const payload = {
+      patientId: isNaN(Number(form.patientHospitalId))
+        ? form.patientHospitalId
+        : Number(form.patientHospitalId),
+      doctorId:
+        form.doctorId && !isNaN(Number(form.doctorId))
+          ? Number(form.doctorId)
+          : form.doctorId || null,
+      labTechnicianId:
+        form.labTechnicianId && !isNaN(Number(form.labTechnicianId))
+          ? Number(form.labTechnicianId)
+          : form.labTechnicianId || null,
+      sampleType: form.sampleType,
+      collectedOn: form.collectedOn,
+      collectionTime: (() => {
+        // convert `HH:MM` to `hh:mm AM/PM` if needed
+        const t = form.collectedTime || "";
+        if (!t) return "";
+        const [hh, mm] = t.split(":");
+        let hour = Number(hh);
+        const suffix = hour >= 12 ? "PM" : "AM";
+        if (hour === 0) hour = 12;
+        if (hour > 12) hour = hour - 12;
+        return `${String(hour).padStart(2, "0")}:${mm} ${suffix}`;
+      })(),
+      remarks: remarks || "",
+      totalCost: Number(totalAmount) || 0,
+      testResults: tests.map((t) => ({
+        testName: t.name || "",
+        resultValue: t.result || "",
+        units: t.units || "",
+        referenceRange: t.range || "",
+        cost: Number(t.cost) || 0,
+      })),
+    };
+
+    dispatch(createPathology(payload))
+      .unwrap()
+      .then((res) => {
+        Swal.fire({
+          icon: "success",
+          title: "Saved",
+          text: "Pathology created successfully",
+          timer: 1500,
+          showConfirmButton: false,
+        });
+        // reset form
+        setForm({
+          patientName: "",
+          age: "",
+          gender: "",
+          contact: "",
+          patientHospitalId: "",
+          doctor: "",
+          doctorId: "",
+          labTechnicianId: "",
+          email: "",
+          sampleType: "Blood",
+          collectedOn: "",
+          collectedTime: "",
+          receivedBy: "",
+        });
+        setTests([{ name: "", result: "", units: "", range: "", cost: 0 }]);
+        setRemarks("");
+        dispatch(resetCreateState());
+      })
+      .catch((err) => {
+        const text =
+          (err && (err.message || JSON.stringify(err))) ||
+          "Failed to create pathology";
+        Swal.fire({ icon: "error", title: "Error", text });
+      });
   };
   const handlePrint = () => {
     if (validateAll()) window.print();
@@ -193,17 +370,34 @@ export default function AddPathalogyForm() {
                   />
                 </div>
                 <div className="col-md-3">
-                  <label>Patient ID</label>
+                  <label>Patient Hospital ID</label>
                   <input
-                    id="patientId"
+                    id="patientHospitalId"
                     className={`form-control ${
-                      valid.patientId === false ? "is-invalid" : ""
+                      valid.patientHospitalId === false ? "is-invalid" : ""
                     }`}
-                    value={form.patientId}
+                    value={form.patientHospitalId}
                     onChange={handleFormChange}
                   />
+                  {showPatientSuggestions && patientSuggestions.length > 0 && (
+                    <div
+                      className="list-group position-absolute"
+                      style={{ zIndex: 999 }}
+                    >
+                      {patientSuggestions.map((ps, idx) => (
+                        <button
+                          key={idx}
+                          type="button"
+                          className="list-group-item list-group-item-action"
+                          onClick={() => handleSelectPatient(ps)}
+                        >
+                          <strong>{ps.id}</strong> — {ps.name}
+                        </button>
+                      ))}
+                    </div>
+                  )}
                 </div>
-                <div className="col-md-5">
+                <div className="col-md-4">
                   <label>Referring Doctor</label>
                   <input
                     id="doctor"
@@ -213,7 +407,8 @@ export default function AddPathalogyForm() {
                     placeholder="Dr. Mehta"
                   />
                 </div>
-                <div className="col-md-4">
+
+                <div className="col-md-3">
                   <label>Email</label>
                   <input
                     id="email"
@@ -274,6 +469,16 @@ export default function AddPathalogyForm() {
                         className="form-control"
                         value={form.receivedBy}
                         onChange={handleFormChange}
+                      />
+                    </div>
+                    <div className="col-md-6">
+                      <label>Lab Technician ID</label>
+                      <input
+                        id="labTechnicianId"
+                        className="form-control"
+                        value={form.labTechnicianId || ""}
+                        onChange={handleFormChange}
+                        placeholder="Technician ID"
                       />
                     </div>
                   </div>

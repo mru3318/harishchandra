@@ -192,7 +192,7 @@ export default function ManagePrescription() {
                         <i className="bi bi-eye"></i>
                       </button>
                       <NavLink
-                        className="btn btn-warning btn-sm text-dark me-1"
+                        className="btn btn-warning btn-sm text-dark me-1 edit-btn-hover"
                         to={`/dashboard/edit-prescription/${
                           row.id || row.prescriptionId
                         }`}
@@ -200,7 +200,7 @@ export default function ManagePrescription() {
                         <i className="bi bi-pencil-square"></i>
                       </NavLink>
                       <button
-                        className="btn btn-danger btn-sm"
+                        className="btn btn-danger btn-sm edit1-btn-hover"
                         onClick={() =>
                           handleDelete(row.id || row.prescriptionId)
                         }

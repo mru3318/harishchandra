@@ -17,6 +17,7 @@ import commanReducer from "../features/commanSlice";
 import appointmentReducer from "../features/appointmentSlice";
 import doctorByDepartmentReducer from "../../src/features/doctorByDepartmentSlice";
 import allocatedBedsReducer from "../features/allocatedBedsSlice";
+import pathologyReducer from "../features/pathologySlice";
 
 export const store = configureStore({
   reducer: {
@@ -38,6 +39,7 @@ export const store = configureStore({
     appointment: appointmentReducer,
     doctorsByDepartment: doctorByDepartmentReducer,
     allocatedBeds: allocatedBedsReducer,
+    pathology: pathologyReducer,
   },
 });
 
