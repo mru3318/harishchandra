@@ -385,11 +385,11 @@ const Layout = () => {
                     {currentUser?.firstName + " " + currentUser?.lastName}
                   </p>
                 </div>
-                <a className="dropdown-item">
+                <NavLink to="/dashboard/my-profile" className="dropdown-item">
                   <i className="dropdown-item-icon icon-user text-primary" /> My
                   Profile
                   <span className="badge badge-pill badge-danger">1</span>
-                </a>
+                </NavLink>
                 <button
                   type="button"
                   className="dropdown-item"

@@ -1,6 +1,7 @@
 import React, { useState, useEffect } from "react";
 import { useFormik } from "formik";
 import * as Yup from "yup";
+import Select from "react-select";
 import {
   BloodGroupOptions,
   ExperienceLevel,
@@ -18,6 +19,7 @@ import {
 } from "../../../features/employeeSlice";
 import Swal from "sweetalert2";
 import "sweetalert2/dist/sweetalert2.min.css";
+import { SPECIALIZATIONS } from "../../../../specialization";
 
 const EmployeeRegistration = () => {
   const fieldLabels = {
@@ -107,7 +109,7 @@ const EmployeeRegistration = () => {
       profilePic: null,
       bloodGroup: "",
       experience: "",
-      qualifications: "",
+      qualifications: [],
       category: "",
       specialization: "",
       licenseNumber: "",
@@ -137,7 +139,10 @@ const EmployeeRegistration = () => {
         .max(new Date(), "Date of Birth cannot be in the future")
         .min(new Date(1900, 0, 1), "Date of Birth cannot be before 1900"),
       role: Yup.string().required("Role is required"),
-      qualifications: Yup.string().required("Qualifications is required"),
+      qualifications: Yup.array()
+        .of(Yup.string())
+        .min(1, "At least one qualification is required")
+        .required("Qualifications are required"),
       // Address validation - basic requirements
       addressLine1: Yup.string().required("Address Line 1 is required"),
       state: Yup.string().required("State is required"),
@@ -220,7 +225,7 @@ const EmployeeRegistration = () => {
           payload.doctorDto = {
             specialization: values.specialization || "",
             experience: values.experience || null,
-            qualifications: values.qualifications || "", // note: server expects 'qualifications' (plural)
+            qualifications: values.qualifications, // note: server expects 'qualifications' (plural)
             licenseNumber: values.licenseNumber || "",
             departmentId: values.department ? Number(values.department) : 3, // default departmentId
           };
@@ -228,7 +233,7 @@ const EmployeeRegistration = () => {
         else if (String(values.role) === "7") {
           payload.humanResourceDto = {
             experience: values.experience || null,
-            qualifications: values.qualifications || "",
+            qualifications: values.qualifications,
           };
         }
 
@@ -236,7 +241,7 @@ const EmployeeRegistration = () => {
         else if (String(values.role) === "10") {
           payload.receptionistDto = {
             experience: values.experience || null,
-            qualifications: values.qualifications || "",
+            qualifications: values.qualifications,
           };
         }
 
@@ -244,7 +249,7 @@ const EmployeeRegistration = () => {
         else if (String(values.role) === "5") {
           payload.pharmacistDto = {
             experience: values.experience || null,
-            qualifications: values.qualifications || "",
+            qualifications: values.qualifications,
           };
         }
 
@@ -252,7 +257,7 @@ const EmployeeRegistration = () => {
         else if (String(values.role) === "4") {
           payload.headNurseDto = {
             experience: values.experience || null,
-            qualifications: values.qualifications || "",
+            qualifications: values.qualifications,
           };
         }
 
@@ -260,7 +265,7 @@ const EmployeeRegistration = () => {
         else if (String(values.role) === "6") {
           payload.accountantDto = {
             experience: values.experience || null,
-            qualifications: values.qualifications || "",
+            qualifications: values.qualifications,
           };
         }
 
@@ -268,7 +273,7 @@ const EmployeeRegistration = () => {
         else if (String(values.role) === "9") {
           payload.insurerDto = {
             experience: values.experience || null,
-            qualifications: values.qualifications || "",
+            qualifications: values.qualifications,
           };
         }
 
@@ -276,7 +281,7 @@ const EmployeeRegistration = () => {
         else if (String(values.role) === "8") {
           payload.laboratoristDto = {
             experience: values.experience || null,
-            qualifications: values.qualifications || "",
+            qualifications: values.qualifications,
             laboratoryType: values.category || null,
           };
         }
@@ -638,6 +643,12 @@ const EmployeeRegistration = () => {
     setDistricts(selected ? selected.districts : []);
   };
 
+  // Department change handler to reset specialization
+  const handleDepartmentChange = (e) => {
+    formik.setFieldValue("department", e.target.value);
+    formik.setFieldValue("specialization", "");
+  };
+
   // Role-specific fields renderer remains but uses the canonical keys (experience, qualification, category)
   const renderRoleSpecificFields = () => {
     const { role } = formik.values;
@@ -648,6 +659,11 @@ const EmployeeRegistration = () => {
 
     switch (String(role)) {
       case "3":
+        const selectedDept = departments.find(
+          (d) => String(d.id) === String(formik.values.department)
+        );
+        const deptName = selectedDept ? selectedDept.departmentName : "";
+        const specializations = SPECIALIZATIONS[deptName] || [];
         return (
           <div id="doctorFields" className="mt-3">
             <h5>{roleLabel} Specific Fields</h5>
@@ -676,7 +692,7 @@ const EmployeeRegistration = () => {
                 <select
                   name="department"
                   value={formik.values.department}
-                  onChange={formik.handleChange}
+                  onChange={handleDepartmentChange}
                   onBlur={formik.handleBlur}
                   className="form-select"
                 >
@@ -704,48 +720,61 @@ const EmployeeRegistration = () => {
                   onChange={formik.handleChange}
                   onBlur={formik.handleBlur}
                   className="form-control"
-                  style={{ height: "50px" }}
+                  style={{ height: "40px", fontSize: "16px" }}
                 >
                   <option value="">-- Select Specialization --</option>
-                  <option value="General Physician">General Physician</option>
-                  <option value="Cardiologist">Cardiologist</option>
-                  <option value="Neurologist">Neurologist</option>
-                  <option value="Orthopedic">Orthopedic</option>
-                  <option value="Pediatrician">Pediatrician</option>
-                  <option value="Dermatologist">Dermatologist</option>
-                  <option value="Gynecologist">Gynecologist</option>
-                  <option value="ENT Specialist">ENT Specialist</option>
-                  <option value="Urologist">Urologist</option>
-                  <option value="Dentist">Dentist</option>
-                  <option value="Psychiatrist">Psychiatrist</option>
-                  <option value="Ophthalmologist">Ophthalmologist</option>
-                  <option value="Physiotherapist">Physiotherapist</option>
-                  <option value="Radiologist">Radiologist</option>
-                  <option value="Oncologist">Oncologist</option>
+                  {specializations.map((spec) => (
+                    <option key={spec.value} value={spec.value}>
+                      {spec.label}
+                    </option>
+                  ))}
                 </select>
               </div>
 
               {/* Qualifications (Formik) */}
               <div className="col-12 col-md-6 mb-3">
                 <label className="form-label">Qualifications</label>
-                <select
+                <Select
+                  isMulti
+                  isSearchable
                   name="qualifications"
-                  value={formik.values.qualifications}
-                  onChange={formik.handleChange}
+                  options={QualificationOptions[role]?.filter(
+                    (opt) => opt.value !== ""
+                  )}
+                  value={QualificationOptions[role]?.filter((opt) =>
+                    formik.values.qualifications.includes(opt.value)
+                  )}
+                  onChange={(selected) => {
+                    formik.setFieldValue(
+                      "qualifications",
+                      selected ? selected.map((s) => s.value) : []
+                    );
+                  }}
                   onBlur={formik.handleBlur}
-                  className={`form-select ${
+                  className={
                     formik.touched.qualifications &&
                     formik.errors.qualifications
                       ? "is-invalid"
                       : ""
-                  }`}
-                >
-                  {QualificationOptions[role]?.map((opt) => (
-                    <option key={opt.value} value={opt.value}>
-                      {opt.label}
-                    </option>
-                  ))}
-                </select>
+                  }
+                  styles={{
+                    control: (provided, state) => ({
+                      ...provided,
+                      borderColor:
+                        formik.touched.qualifications &&
+                        formik.errors.qualifications
+                          ? "#dc3545"
+                          : provided.borderColor,
+                      "&:hover": {
+                        borderColor:
+                          formik.touched.qualifications &&
+                          formik.errors.qualifications
+                            ? "#dc3545"
+                            : provided.borderColor,
+                      },
+                    }),
+                  }}
+                />
                 <div className="invalid-feedback">
                   {formik.errors.qualifications}
                 </div>
@@ -800,24 +829,47 @@ const EmployeeRegistration = () => {
               {/* Qualification Field */}
               <div className="mb-3 col-md-6">
                 <label className="form-label">Qualifications</label>
-                <select
+                <Select
+                  isMulti
+                  isSearchable
                   name="qualifications"
-                  value={formik.values.qualifications}
-                  onChange={formik.handleChange}
+                  options={QualificationOptions[role]?.filter(
+                    (opt) => opt.value !== ""
+                  )}
+                  value={QualificationOptions[role]?.filter((opt) =>
+                    formik.values.qualifications.includes(opt.value)
+                  )}
+                  onChange={(selected) => {
+                    formik.setFieldValue(
+                      "qualifications",
+                      selected ? selected.map((s) => s.value) : []
+                    );
+                  }}
                   onBlur={formik.handleBlur}
-                  className={`form-select ${
+                  className={
                     formik.touched.qualifications &&
                     formik.errors.qualifications
                       ? "is-invalid"
                       : ""
-                  }`}
-                >
-                  {QualificationOptions[role]?.map((opt) => (
-                    <option key={opt.value} value={opt.value}>
-                      {opt.label}
-                    </option>
-                  ))}
-                </select>
+                  }
+                  styles={{
+                    control: (provided, state) => ({
+                      ...provided,
+                      borderColor:
+                        formik.touched.qualifications &&
+                        formik.errors.qualifications
+                          ? "#dc3545"
+                          : provided.borderColor,
+                      "&:hover": {
+                        borderColor:
+                          formik.touched.qualifications &&
+                          formik.errors.qualifications
+                            ? "#dc3545"
+                            : provided.borderColor,
+                      },
+                    }),
+                  }}
+                />
                 <div className="invalid-feedback">
                   {formik.errors.qualifications}
                 </div>
@@ -866,24 +918,47 @@ const EmployeeRegistration = () => {
               {/* Qualifications (Formik) */}
               <div className="col-12 col-md-6 mb-3">
                 <label className="form-label">Qualifications</label>
-                <select
+                <Select
+                  isMulti
+                  isSearchable
                   name="qualifications"
-                  value={formik.values.qualifications}
-                  onChange={formik.handleChange}
+                  options={QualificationOptions[role]?.filter(
+                    (opt) => opt.value !== ""
+                  )}
+                  value={QualificationOptions[role]?.filter((opt) =>
+                    formik.values.qualifications.includes(opt.value)
+                  )}
+                  onChange={(selected) => {
+                    formik.setFieldValue(
+                      "qualifications",
+                      selected ? selected.map((s) => s.value) : []
+                    );
+                  }}
                   onBlur={formik.handleBlur}
-                  className={`form-select ${
+                  className={
                     formik.touched.qualifications &&
                     formik.errors.qualifications
                       ? "is-invalid"
                       : ""
-                  }`}
-                >
-                  {QualificationOptions[role]?.map((opt) => (
-                    <option key={opt.value} value={opt.value}>
-                      {opt.label}
-                    </option>
-                  ))}
-                </select>
+                  }
+                  styles={{
+                    control: (provided, state) => ({
+                      ...provided,
+                      borderColor:
+                        formik.touched.qualifications &&
+                        formik.errors.qualifications
+                          ? "#dc3545"
+                          : provided.borderColor,
+                      "&:hover": {
+                        borderColor:
+                          formik.touched.qualifications &&
+                          formik.errors.qualifications
+                            ? "#dc3545"
+                            : provided.borderColor,
+                      },
+                    }),
+                  }}
+                />
                 <div className="invalid-feedback">
                   {formik.errors.qualifications}
                 </div>

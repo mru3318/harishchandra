@@ -76,6 +76,7 @@ import AddIpd from "./components/patients/ipd/add-ipd/AddIpd.jsx";
 import AddEmergency from "./components/patients/emergency/add-emergency/AddEmergency.jsx";
 import ViewIpd from "./components/patients/ipd/view-ipd/ViewIpd.jsx";
 import ViewEmergency from "./components/patients/emergency/view-emergency/ViewEmergency.jsx";
+import MyProfile from "./components/auth/my-profile/MyProfile.jsx";
 
 function SessionManager() {
   const exp = useSelector(selectAuthExpiry);
@@ -446,6 +447,12 @@ function App() {
         {
           path: "settings",
           element: <Settings />,
+        },
+
+        //my profile route can be added here
+        {
+          path: "my-profile",
+          element: <MyProfile />,
         },
       ],
     },
