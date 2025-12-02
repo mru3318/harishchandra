@@ -77,6 +77,7 @@ import AddEmergency from "./components/patients/emergency/add-emergency/AddEmerg
 import ViewIpd from "./components/patients/ipd/view-ipd/ViewIpd.jsx";
 import ViewEmergency from "./components/patients/emergency/view-emergency/ViewEmergency.jsx";
 import MyProfile from "./components/auth/my-profile/MyProfile.jsx";
+import EditPathologyForm from "./components/reports/pathalogy/edit-pathology-report/EditPathologyForm.jsx";
 
 function SessionManager() {
   const exp = useSelector(selectAuthExpiry);
@@ -353,6 +354,10 @@ function App() {
         {
           path: "add-pathology-report",
           element: <AddPathalogyForm />,
+        },
+        {
+          path: "edit-pathology-report/:id",
+          element: <EditPathologyForm />,
         },
         {
           path: "manage-pathology-reports",

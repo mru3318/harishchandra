@@ -1,4 +1,5 @@
 import React, { useState, useRef } from "react";
+import { useParams, useNavigate } from "react-router-dom";
 import { useDispatch, useSelector } from "react-redux";
 import Swal from "sweetalert2";
 import {
@@ -7,11 +8,14 @@ import {
   selectCreatePathologyStatus,
   selectCreatePathologyError,
 } from "../../../../features/pathologySlice";
+import { updatePathology } from "../../../../features/pathologySlice";
+import { removePathologyFromCache } from "../../../../features/pathologySlice";
 import {
   fetchLabTechnicians,
   selectLabTechnicians,
   selectLabTechniciansStatus,
 } from "../../../../features/pathologySlice";
+import { fetchPathologyById } from "../../../../features/pathologySlice";
 import {
   fetchPatients,
   selectPatients,
@@ -21,7 +25,7 @@ import {
   selectDoctorNameIdsStatus,
 } from "../../../../features/commanSlice";
 
-export default function AddPathalogyForm() {
+export default function EditPathologyForm() {
   const THEME = "#01C0C8";
 
   const TEST_CATALOG = {
@@ -59,6 +63,8 @@ export default function AddPathalogyForm() {
     collectedTime: "",
   });
   const dispatch = useDispatch();
+  const { id: reportId } = useParams();
+  const navigate = useNavigate();
   const patients = useSelector(selectPatients) || [];
   const patientsStatus = useSelector(selectPatientsStatus);
 
@@ -87,7 +93,8 @@ export default function AddPathalogyForm() {
     if (id === "patientName" && /[^a-zA-Z\s.]/.test(value)) return;
     if (id === "age" && /[^0-9]/.test(value)) return;
     if (id === "contact" && (/[^0-9]/.test(value) || value.length > 10)) return;
-    if (id === "patientHospitalId" && /[^a-zA-Z0-9-]/.test(value)) return;
+    // Allow hospital IDs with letters, numbers, hyphen, underscore, slash and spaces
+    if (id === "patientHospitalId" && /[^a-zA-Z0-9\-_\/ ]/.test(value)) return;
     setForm((prev) => ({ ...prev, [id]: value }));
     if (id === "patientName" || id === "patientHospitalId") {
       const q = value.trim().toLowerCase();
@@ -134,6 +141,236 @@ export default function AddPathalogyForm() {
   React.useEffect(() => {
     if (labTechniciansStatus === "idle") dispatch(fetchLabTechnicians());
   }, [dispatch, labTechniciansStatus]);
+
+  // Fetch existing pathology by id and populate form
+  React.useEffect(() => {
+    if (!reportId) return;
+    dispatch(fetchPathologyById(reportId))
+      .unwrap()
+      .then((data) => {
+        const rec = data || {};
+        // patient
+        console.debug("fetchPathologyById - record:", rec);
+        const patientName =
+          rec.patientName ||
+          rec.patient?.name ||
+          rec.patientFullName ||
+          rec.patient?.fullName ||
+          "";
+
+        // patient hospital id: try multiple common keys and nested locations
+        const patientHospitalId =
+          rec.patientHospitalId ||
+          rec.patient?.patient_hospital_id ||
+          rec.patient?.hospitalId ||
+          rec.patient_hospital_id ||
+          rec.patient?.patientHospitalId ||
+          rec.patient?.patientId ||
+          rec.patientId ||
+          rec.patient?.id ||
+          "";
+
+        const patientInternalId =
+          rec.patientId ||
+          rec.patient?.id ||
+          rec.patient?._id ||
+          rec.patientInternalId ||
+          null;
+
+        // age: check direct fields, nested patient, or derive from dob
+        let ageVal =
+          rec.age ||
+          rec.patientAge ||
+          rec.ageYears ||
+          rec.patient?.age ||
+          rec.patient?.ageYears ||
+          null;
+        if (!ageVal) {
+          const dob = rec.dob || rec.patient?.dob || rec.patient?.dateOfBirth;
+          if (dob) {
+            const bd = new Date(dob);
+            if (!isNaN(bd.getTime())) {
+              const diff = Date.now() - bd.getTime();
+              ageVal = Math.floor(diff / (365.25 * 24 * 60 * 60 * 1000));
+            }
+          }
+        }
+
+        // contact: check several common locations
+        const contactVal =
+          rec.contact ||
+          rec.contactNumber ||
+          rec.patientContact ||
+          rec.phone ||
+          rec.mobile ||
+          rec.patient?.contact ||
+          rec.patient?.contactNumber ||
+          rec.patient?.mobile ||
+          rec.patient?.phone ||
+          rec.contactInfo ||
+          "";
+
+        // gender: normalize to match select options (Male/Female/Other)
+        let genderVal =
+          rec.gender ||
+          rec.sex ||
+          rec.patient?.gender ||
+          rec.patient?.sex ||
+          "";
+        if (genderVal) {
+          const g = String(genderVal).toLowerCase();
+          if (g.startsWith("m")) genderVal = "Male";
+          else if (g.startsWith("f")) genderVal = "Female";
+          else genderVal = "Other";
+        }
+
+        // email: try a few nested variants
+        let emailVal =
+          rec.email ||
+          rec.patient?.email ||
+          rec.contact?.email ||
+          rec.patientContactEmail ||
+          "";
+
+        // If gender or email are still missing, try to resolve them from the
+        // loaded patients list using the patient internal id returned by the
+        // pathology record (rec.patientId / patientInternalId).
+        try {
+          const lookupId =
+            patientInternalId || rec.patientId || rec.patient?.id || null;
+          if (
+            (patients || []).length > 0 &&
+            lookupId != null &&
+            !genderVal &&
+            !emailVal
+          ) {
+            const found = (patients || []).find((p) => {
+              const candidate =
+                p.id || p._id || p.patientId || p.patient_id || null;
+              return String(candidate) === String(lookupId);
+            });
+            if (found) {
+              if (!genderVal) {
+                const graw =
+                  found.gender || found.sex || found.patient_gender || "";
+                const gstr = String(graw).toLowerCase();
+                if (gstr.startsWith("m")) genderVal = "Male";
+                else if (gstr.startsWith("f")) genderVal = "Female";
+                else if (graw) genderVal = "Other";
+              }
+              if (!emailVal) {
+                emailVal =
+                  found.email || found.contactEmail || found.emailAddress || "";
+              }
+            }
+          } else if ((patients || []).length > 0 && lookupId != null) {
+            // If one of them missing, still try to fill individually
+            const found = (patients || []).find((p) => {
+              const candidate =
+                p.id || p._id || p.patientId || p.patient_id || null;
+              return String(candidate) === String(lookupId);
+            });
+            if (found) {
+              if (!genderVal) {
+                const graw =
+                  found.gender || found.sex || found.patient_gender || "";
+                const gstr = String(graw).toLowerCase();
+                if (gstr.startsWith("m")) genderVal = "Male";
+                else if (gstr.startsWith("f")) genderVal = "Female";
+                else if (graw) genderVal = "Other";
+              }
+              if (!emailVal)
+                emailVal =
+                  found.email || found.contactEmail || found.emailAddress || "";
+            }
+          }
+        } catch (e) {
+          console.debug("Patient lookup failed:", e);
+        }
+
+        console.debug("Resolved fields:", {
+          patientHospitalId,
+          patientInternalId,
+          contactVal,
+          genderVal,
+          emailVal,
+        });
+
+        // doctor
+        const doctorName = rec.doctorName || rec.doctor?.name || "";
+        const doctorId =
+          rec.doctorId || rec.doctor?.id || rec.doctor?._id || "";
+
+        // technician
+        const techName = rec.labTechnicianName || rec.labTechnician?.name || "";
+        const techId =
+          rec.labTechnicianId ||
+          rec.labTechnician?.id ||
+          rec.labTechnician?._id ||
+          "";
+
+        // tests
+        const tresults = Array.isArray(rec.testResults)
+          ? rec.testResults
+          : rec.test_results || rec.tests || [];
+        const mappedTests = (tresults || []).map((tr) => ({
+          name: tr.testName || tr.name || "",
+          result: tr.resultValue || tr.result || "",
+          units: tr.units || "",
+          range: tr.referenceRange || tr.range || "",
+          cost: tr.cost || 0,
+        }));
+
+        // remarks
+        const remarksVal = rec.remarks || rec.note || "";
+
+        // collectedOn/time
+        const collectedOn =
+          rec.collectedOn || rec.collected_on || rec.date || "";
+        let collectedTime =
+          rec.collectionTime || rec.collection_time || rec.time || "";
+        // normalize 'hh:mm AM/PM' -> 'HH:MM'
+        if (collectedTime && /AM|PM/i.test(collectedTime)) {
+          const m = collectedTime.match(/(\d{1,2}):(\d{2})\s*(AM|PM)/i);
+          if (m) {
+            let hh = Number(m[1]);
+            const mm = m[2];
+            const ap = m[3].toUpperCase();
+            if (ap === "PM" && hh < 12) hh += 12;
+            if (ap === "AM" && hh === 12) hh = 0;
+            collectedTime = `${String(hh).padStart(2, "0")}:${mm}`;
+          }
+        }
+
+        setForm((prev) => ({
+          ...prev,
+          patientName: patientName || prev.patientName,
+          age: ageVal || prev.age,
+          gender: genderVal || prev.gender,
+          contact: contactVal || prev.contact,
+          email: emailVal || prev.email,
+          patientHospitalId: patientHospitalId || prev.patientHospitalId,
+          patientInternalId: patientInternalId || prev.patientInternalId,
+          doctor: doctorName || prev.doctor,
+          doctorId: doctorId || prev.doctorId,
+          labTechnicianName: techName || prev.labTechnicianName,
+          labTechnicianId: techId || prev.labTechnicianId,
+          sampleType: rec.sampleType || rec.sample_type || prev.sampleType,
+          collectedOn: collectedOn || prev.collectedOn,
+          collectedTime: collectedTime || prev.collectedTime,
+        }));
+        if (mappedTests.length) setTests(mappedTests);
+        setRemarks(remarksVal);
+      })
+      .catch((err) => {
+        console.error("Failed to fetch pathology:", err);
+        Swal.fire({
+          icon: "error",
+          title: "Failed to load",
+          text: "Unable to fetch pathology data.",
+        });
+      });
+  }, [dispatch, reportId, patients]);
 
   // Update suggestions when patientQuery or patients change
   React.useEffect(() => {
@@ -340,11 +577,11 @@ export default function AddPathalogyForm() {
       age: /^[0-9]{1,3}$/,
       gender: /.+/,
       contact: /^[0-9]{10}$/,
-      patientHospitalId: /^[A-Za-z0-9-]{3,30}$/,
+      // Accept alphanumeric, hyphen, underscore, slash and spaces; 1-50 chars
+      patientHospitalId: /^[A-Za-z0-9\-_\/ ]{1,50}$/,
       email: /^[^\s@]+@[^\s@]+\.[^\s@]+$/,
     };
     Object.entries(required).forEach(([k, regex]) => {
-      // ensure we operate on a string (some form fields may be numbers)
       const raw = form[k];
       const sval = raw == null ? "" : String(raw);
       const v = sval.trim();
@@ -354,11 +591,25 @@ export default function AddPathalogyForm() {
       } else newValid[k] = true;
     });
     setValid(newValid);
-    return ok;
+    const invalidFields = Object.keys(newValid).filter((k) => !newValid[k]);
+    return { ok, invalidFields };
   };
 
   const handleSave = () => {
-    if (!validateAll()) return;
+    const { ok, invalidFields } = validateAll();
+    if (!ok) {
+      const pretty = invalidFields
+        .map((f) => `- ${f.replace(/([A-Z])/g, " $1").trim()}`)
+        .join("\n");
+      Swal.fire({
+        icon: "warning",
+        title: "Validation failed",
+        html: `<pre style=\"text-align:left\">${pretty}</pre>`,
+        text: "Please correct the highlighted fields before saving.",
+      });
+      console.debug("Validation failed fields:", invalidFields, "form:", form);
+      return;
+    }
     // build payload matching backend contract
     const collectionTime = (() => {
       const t = form.collectedTime || "";
@@ -434,6 +685,13 @@ export default function AddPathalogyForm() {
 
     const payload = {
       patientId: patientIdToSend,
+      // also include patient-level fields so backend can update patient info
+      patientName: form.patientName || undefined,
+      patientHospitalId: form.patientHospitalId || undefined,
+      age: form.age || undefined,
+      gender: form.gender || undefined,
+      contact: form.contact || undefined,
+      email: form.email || undefined,
       doctorId:
         form.doctorId && !Number.isNaN(Number(form.doctorId))
           ? Number(form.doctorId)
@@ -455,17 +713,18 @@ export default function AddPathalogyForm() {
 
     console.debug("Submitting pathology payload:", payload);
 
-    dispatch(createPathology(payload))
+    // Use updatePathology thunk to update an existing report
+    dispatch(updatePathology({ reportId: reportId, payload }))
       .unwrap()
       .then((res) => {
         Swal.fire({
           icon: "success",
-          title: "Saved",
-          text: "Pathology created successfully",
+          title: "Updated",
+          text: "Pathology updated successfully",
           timer: 1500,
           showConfirmButton: false,
         });
-        // reset form
+        // reset form (optional)
         setForm({
           patientName: "",
           age: "",
@@ -484,17 +743,20 @@ export default function AddPathalogyForm() {
         });
         setTests([{ name: "", result: "", units: "", range: "", cost: 0 }]);
         setRemarks("");
-        dispatch(resetCreateState());
+        // hide this form and navigate back to manage list
+        setIsVisible(false);
+        navigate("/dashboard/manage-pathology-reports");
       })
       .catch((err) => {
         const text =
           (err && (err.message || JSON.stringify(err))) ||
-          "Failed to create pathology";
+          "Failed to update pathology";
         Swal.fire({ icon: "error", title: "Error", text });
       });
   };
   const handlePrint = () => {
-    if (validateAll()) window.print();
+    const { ok } = validateAll();
+    if (ok) window.print();
   };
 
   return (
@@ -517,7 +779,7 @@ export default function AddPathalogyForm() {
 
         <div className="card-main">
           <div className="card-header">
-            <i className="fas fa-vials me-2"></i> Pathology & Diagnostics
+            <i className="fas fa-vials me-2"></i> Update Pathology & Diagnostics
           </div>
 
           <div className="card-body">
@@ -893,14 +1155,34 @@ export default function AddPathalogyForm() {
             </div>
 
             <div className="d-flex justify-content-center gap-2 mb-3 no-print">
-              <button className="btn btn-theme" onClick={handleSave}>
-                Save
-              </button>
               <button
-                className="btn btn-dark"
-                onClick={() => setIsVisible(false)}
+                className="btn btn-outline-secondary"
+                onClick={() => {
+                  // Cancel: remove from local cache and return to manage page
+                  try {
+                    // Remove from localStorage cache used by the manage list
+                    const LS_KEY = "hms_path_reports";
+                    const list = JSON.parse(
+                      localStorage.getItem(LS_KEY) || "[]"
+                    );
+                    const updated = list.filter(
+                      (x) => String(x.id) !== String(reportId)
+                    );
+                    localStorage.setItem(LS_KEY, JSON.stringify(updated));
+                  } catch (e) {
+                    console.warn("Failed to update localStorage on cancel:", e);
+                  }
+                  // remove from redux cached pathologies so manage page reflects removal
+                  if (reportId) dispatch(removePathologyFromCache(reportId));
+                  setIsVisible(false);
+                  // navigate back to manage list
+                  navigate("/dashboard/manage-pathology-reports");
+                }}
               >
-                Close
+                Cancel
+              </button>
+              <button className="btn btn-theme" onClick={handleSave}>
+                Update Report
               </button>
             </div>
 

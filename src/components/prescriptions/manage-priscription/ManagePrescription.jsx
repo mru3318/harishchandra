@@ -4,6 +4,8 @@ import Swal from "sweetalert2";
 import {
   fetchAllPrescriptions,
   deletePrescription,
+  updatePrescription,
+  updatePrescriptionStatus,
   selectPrescriptions,
   selectFetchPrescriptionsStatus,
   selectFetchPrescriptionsError,
@@ -17,6 +19,7 @@ export default function ManagePrescription() {
   const fetchStatus = useSelector(selectFetchPrescriptionsStatus);
   const fetchError = useSelector(selectFetchPrescriptionsError);
   const [selected, setSelected] = useState(null);
+  const [statusFilter, setStatusFilter] = useState("");
 
   const [search, setSearch] = useState("");
 
@@ -56,6 +59,42 @@ export default function ManagePrescription() {
           title: "Error!",
           text: error.message || "Failed to delete prescription.",
           icon: "error",
+        });
+      }
+    }
+  };
+
+  const handleStatusChange = async (prescription, newStatus) => {
+    const result = await Swal.fire({
+      title: `Change status to ${newStatus}?`,
+      text: `Are you sure you want to update the status?`,
+      icon: "question",
+      showCancelButton: true,
+      confirmButtonColor: "#01C0C8",
+      cancelButtonColor: "#d33",
+      confirmButtonText: "Yes, update it!",
+    });
+
+    if (result.isConfirmed) {
+      try {
+        await dispatch(
+          updatePrescriptionStatus({
+            prescriptionId: prescription.id || prescription.prescriptionId,
+            status: newStatus,
+          })
+        ).unwrap();
+        Swal.fire({
+          icon: "success",
+          title: "Updated!",
+          text: `Status changed to ${newStatus}`,
+          timer: 1500,
+          showConfirmButton: false,
+        });
+      } catch (error) {
+        Swal.fire({
+          icon: "error",
+          title: "Failed to update",
+          text: error.message || "Could not update status",
         });
       }
     }
@@ -170,6 +209,7 @@ export default function ManagePrescription() {
                   <th>Doctor</th>
                   <th>Department</th>
                   <th>Date</th>
+                  <th>Status</th>
                   <th>Action</th>
                 </tr>
               </thead>
@@ -181,6 +221,34 @@ export default function ManagePrescription() {
                     <td>{row.doctorName || row.doctor}</td>
                     <td>{row.departmentName || row.department}</td>
                     <td>{row.prescriptionDate || row.date}</td>
+                    <td>
+                      <select
+                        className="form-select form-select-sm"
+                        value={row.status || ""}
+                        onChange={(e) => {
+                          const newStatus = e.target.value;
+                          if (newStatus) {
+                            handleStatusChange(row, newStatus);
+                          }
+                        }}
+                        disabled={row.status === "TRANSFERED_TO_PHARMACY"}
+                        style={{
+                          width: "auto",
+                          display: "inline-block",
+                          fontSize: "12px",
+                        }}
+                      >
+                        <option
+                          value="PENDING"
+                          disabled={row.status === "TRANSFERED_TO_PHARMACY"}
+                        >
+                          PENDING
+                        </option>
+                        <option value="TRANSFERED_TO_PHARMACY">
+                          TRANSFERED TO PHARMACY
+                        </option>
+                      </select>
+                    </td>
 
                     <td>
                       <button

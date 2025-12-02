@@ -8,6 +8,7 @@ import {
   selectBedsListStatus,
   selectBedsListError,
 } from "../../../features/bedManagerSlice";
+import { selectAddRoomStatus } from "../../../features/bedManagerSlice";
 import {
   selectAuthRoles,
   selectAuthPermissions,
@@ -19,6 +20,7 @@ const BedList = () => {
   console.log("Beds List:", beds);
   const bedsStatus = useSelector(selectBedsListStatus);
   const bedsError = useSelector(selectBedsListError);
+  const addRoomStatus = useSelector(selectAddRoomStatus);
   const [successMessage, setSuccessMessage] = useState("");
   const [errorMessage, setErrorMessage] = useState("");
   const authRoles = useSelector(selectAuthRoles) || [];
@@ -47,6 +49,13 @@ const BedList = () => {
   useEffect(() => {
     if (bedsStatus === "idle") dispatch(fetchBedsList());
   }, [dispatch, bedsStatus]);
+
+  // When a new room is added successfully elsewhere, refresh the beds list
+  useEffect(() => {
+    if (addRoomStatus === "succeeded") {
+      dispatch(fetchBedsList());
+    }
+  }, [addRoomStatus, dispatch]);
 
   useEffect(() => {
     if (bedsError)

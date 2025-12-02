@@ -118,6 +118,35 @@ export const updatePrescription = createAsyncThunk(
   }
 );
 
+// PUT /api/prescriptions/update-status/{prescriptionId}/{status}
+export const updatePrescriptionStatus = createAsyncThunk(
+  "prescription/updatePrescriptionStatus",
+  async ({ prescriptionId, status }, { rejectWithValue }) => {
+    try {
+      const res = await api.put(
+        `/prescriptions/update-status/${prescriptionId}/${status}`,
+        {},
+        { headers: { "Content-Type": "application/json" } }
+      );
+      return { prescriptionId, status, data: res.data };
+    } catch (err) {
+      if (err.response) {
+        const message =
+          err.response.data?.message || err.response.data || err.message;
+        return rejectWithValue({
+          message,
+          status: err.response.status,
+          url: err.config?.url,
+        });
+      }
+      return rejectWithValue({
+        message: err.message || "Network error",
+        code: err.code,
+      });
+    }
+  }
+);
+
 const initialState = {
   prescriptions: [],
   fetchStatus: "idle",
@@ -130,6 +159,8 @@ const initialState = {
   updateStatus: "idle",
   updateError: null,
   updateErrors: null,
+  statusUpdateStatus: "idle",
+  statusUpdateError: null,
 };
 
 const priscriptionSlice = createSlice({
@@ -215,8 +246,31 @@ const priscriptionSlice = createSlice({
       })
       .addCase(updatePrescription.rejected, (state, action) => {
         state.updateStatus = "failed";
-        state.updateError = action.payload?.message || action.error?.message;
-        state.updateErrors = action.payload?.errors;
+        state.updateError = action.payload?.message || action.error.message;
+        state.updateErrors = action.payload?.errors || null;
+      });
+
+    // updatePrescriptionStatus reducers
+    builder
+      .addCase(updatePrescriptionStatus.pending, (state) => {
+        state.statusUpdateStatus = "loading";
+        state.statusUpdateError = null;
+      })
+      .addCase(updatePrescriptionStatus.fulfilled, (state, action) => {
+        state.statusUpdateStatus = "succeeded";
+        const { prescriptionId, status } = action.payload;
+        // update status in cached prescriptions array
+        const idx = state.prescriptions.findIndex(
+          (p) => String(p.id || p.prescriptionId) === String(prescriptionId)
+        );
+        if (idx !== -1) {
+          state.prescriptions[idx].status = status;
+        }
+      })
+      .addCase(updatePrescriptionStatus.rejected, (state, action) => {
+        state.statusUpdateStatus = "failed";
+        state.statusUpdateError =
+          action.payload?.message || action.error.message;
       });
   },
 });
@@ -240,10 +294,15 @@ export const selectDeletePrescriptionStatus = (state) =>
 export const selectDeletePrescriptionError = (state) =>
   state.priscription?.deleteError;
 export const selectUpdatePrescriptionStatus = (state) =>
-  state.priscription?.updateStatus;
+  state.prescription?.updateStatus || "idle";
 export const selectUpdatePrescriptionError = (state) =>
-  state.priscription?.updateError;
+  state.prescription?.updateError;
 export const selectUpdatePrescriptionErrors = (state) =>
-  state.priscription?.updateErrors;
+  state.prescription?.updateErrors;
+
+export const selectStatusUpdateStatus = (state) =>
+  state.prescription?.statusUpdateStatus || "idle";
+export const selectStatusUpdateError = (state) =>
+  state.prescription?.statusUpdateError;
 
 // `addPrescription`, `deletePrescription`, and `updatePrescription` already exported above as named exports.

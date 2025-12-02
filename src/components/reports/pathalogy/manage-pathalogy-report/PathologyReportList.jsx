@@ -5,7 +5,11 @@ import {
   selectPathologies,
   selectPathologiesStatus,
   selectPathologiesError,
+  updatePathologyStatus,
+  deletePathology,
 } from "../../../../features/pathologySlice";
+import { NavLink } from "react-router-dom";
+import Swal from "sweetalert2";
 
 const LS_KEY = "hms_path_reports";
 
@@ -21,7 +25,6 @@ export default function PathologyReportList() {
   const [filter, setFilter] = useState("");
   const [showEdit, setShowEdit] = useState(false);
   const [showView, setShowView] = useState(false);
-  const [showDelete, setShowDelete] = useState(false);
 
   const [form, setForm] = useState({
     id: "",
@@ -37,7 +40,6 @@ export default function PathologyReportList() {
   });
 
   const [viewData, setViewData] = useState({});
-  const [deleteId, setDeleteId] = useState(null);
 
   // Load from localStorage
   function loadData() {
@@ -128,6 +130,7 @@ export default function PathologyReportList() {
         saveData(mapped);
       } catch (e) {
         /* ignore */
+        console.warn("Failed to save pathology reports to localStorage:", e);
       }
     }
     if (pathologiesStatus === "failed") {
@@ -155,6 +158,50 @@ export default function PathologyReportList() {
     return <span className="badge text-bg-warning">Pending</span>;
   };
 
+  // Update status with confirmation
+  const updateStatus = (reportId, newStatus) => {
+    Swal.fire({
+      title: `Mark as ${newStatus}?`,
+      text: `Are you sure you want to mark this report as ${newStatus}?`,
+      icon: "question",
+      showCancelButton: true,
+      confirmButtonColor: "#01C0C8",
+      cancelButtonColor: "#d33",
+      confirmButtonText: `Yes, mark as ${newStatus}`,
+      cancelButtonText: "Cancel",
+    }).then((result) => {
+      if (result.isConfirmed) {
+        // Use API to update status
+        dispatch(updatePathologyStatus({ reportId, status: newStatus }))
+          .unwrap()
+          .then(() => {
+            // Update local state
+            const updated = loadData();
+            const idx = updated.findIndex((x) => x.id === reportId);
+            if (idx >= 0) {
+              updated[idx].status = newStatus;
+              saveData(updated);
+              setData(updated);
+            }
+            Swal.fire({
+              icon: "success",
+              title: "Updated!",
+              text: `Report marked as ${newStatus}`,
+              timer: 1500,
+              showConfirmButton: false,
+            });
+          })
+          .catch((err) => {
+            Swal.fire({
+              icon: "error",
+              title: "Failed to update",
+              text: err?.message || "Could not update status",
+            });
+          });
+      }
+    });
+  };
+
   // Edit / Add Save
   const saveReport = (e) => {
     e.preventDefault();
@@ -175,11 +222,62 @@ export default function PathologyReportList() {
   };
 
   // Delete
-  const confirmDelete = () => {
-    const updated = loadData().filter((x) => x.id !== deleteId);
-    saveData(updated);
-    setData(updated);
-    setShowDelete(false);
+  const confirmDelete = (reportId) => {
+    Swal.fire({
+      title: "Delete report?",
+      text: "This will remove the report. This action cannot be undone.",
+      icon: "warning",
+      showCancelButton: true,
+      confirmButtonColor: "#d33",
+      cancelButtonColor: "#6c757d",
+      confirmButtonText: "Yes, delete it",
+      cancelButtonText: "Cancel",
+    }).then((result) => {
+      if (!result.isConfirmed) return;
+      // attempt server delete, fallback to client-side removal
+      dispatch(deletePathology(reportId))
+        .unwrap()
+        .then(() => {
+          // remove from local cache and UI
+          try {
+            const updated = loadData().filter(
+              (x) => String(x.id) !== String(reportId)
+            );
+            saveData(updated);
+            setData(updated);
+          } catch (e) {
+            console.warn("Failed to update localStorage after delete:", e);
+          }
+          Swal.fire({
+            icon: "success",
+            title: "Deleted",
+            text: "Report deleted successfully",
+            timer: 1200,
+            showConfirmButton: false,
+          });
+        })
+        .catch((err) => {
+          // show error and still attempt client-side removal for offline items
+          Swal.fire({
+            icon: "error",
+            title: "Failed to delete",
+            text: err?.message || "Could not delete report on server",
+          }).then(() => {
+            try {
+              const updated = loadData().filter(
+                (x) => String(x.id) !== String(reportId)
+              );
+              saveData(updated);
+              setData(updated);
+            } catch (e) {
+              console.warn(
+                "Failed to update localStorage after delete fallback:",
+                e
+              );
+            }
+          });
+        });
+    });
   };
 
   return (
@@ -213,7 +311,6 @@ export default function PathologyReportList() {
                 onChange={(e) => setFilter(e.target.value)}
               >
                 <option value="">All status</option>
-                <option value="Pending">Pending</option>
                 <option value="Completed">Completed</option>
                 <option value="Delivered">Delivered</option>
               </select>
@@ -249,8 +346,10 @@ export default function PathologyReportList() {
                     // clear token and navigate to login so user can re-authenticate
                     try {
                       localStorage.removeItem("jwtToken");
-                    } catch (e) {}
-                    window.location.href = "/login";
+                    } catch (e) {
+                      console.warn("Failed to remove token:", e);
+                    }
+                    window.location.href = "/";
                   }}
                 >
                   Login
@@ -292,7 +391,21 @@ export default function PathologyReportList() {
                     <td>{r.doctor}</td>
                     <td>{r.date}</td>
                     <td>{r.test}</td>
-                    <td>{statusBadge(r.status)}</td>
+                    <td>
+                      <select
+                        className="form-select form-select-sm"
+                        value={r.status}
+                        onChange={(e) => updateStatus(r.id, e.target.value)}
+                        style={{
+                          width: "auto",
+                          display: "inline-block",
+                          fontSize: "12px",
+                        }}
+                      >
+                        <option value="COMPLETED">Completed</option>
+                        <option value="DELIVERED">Delivered</option>
+                      </select>
+                    </td>
                     <td>
                       <div className="d-flex justify-content-center gap-1">
                         <button
@@ -304,7 +417,8 @@ export default function PathologyReportList() {
                         >
                           <i className="bi bi-eye" />
                         </button>
-                        <button
+                        <NavLink
+                          to={`/dashboard/edit-pathology-report/${r.id}`}
                           className="btn btn-outline-warning btn-sm"
                           onClick={() => {
                             setForm(r);
@@ -312,13 +426,10 @@ export default function PathologyReportList() {
                           }}
                         >
                           <i className="bi bi-pencil" />
-                        </button>
+                        </NavLink>
                         <button
                           className="btn btn-outline-danger btn-sm"
-                          onClick={() => {
-                            setDeleteId(r.id);
-                            setShowDelete(true);
-                          }}
+                          onClick={() => confirmDelete(r.id)}
                         >
                           <i className="bi bi-trash" />
                         </button>
@@ -557,38 +668,7 @@ export default function PathologyReportList() {
         </div>
       )}
 
-      {/* Delete Confirmation */}
-      {showDelete && (
-        <div
-          className="modal fade show d-block"
-          style={{ background: "#00000070" }}
-        >
-          <div className="modal-dialog">
-            <div className="modal-content">
-              <div className="modal-header">
-                <h5>Delete Report?</h5>
-              </div>
-              <div className="modal-body small">
-                Are you sure you want to delete this report?
-              </div>
-              <div className="modal-footer">
-                <button
-                  className="btn btn-secondary btn-sm"
-                  onClick={() => setShowDelete(false)}
-                >
-                  Cancel
-                </button>
-                <button
-                  className="btn btn-danger btn-sm"
-                  onClick={confirmDelete}
-                >
-                  Delete
-                </button>
-              </div>
-            </div>
-          </div>
-        </div>
-      )}
+      {/* Delete handled via SweetAlert confirmation (no modal) */}
     </>
   );
 }
