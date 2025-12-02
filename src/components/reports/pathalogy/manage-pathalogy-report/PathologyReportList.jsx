@@ -1,4 +1,11 @@
 import React, { useEffect, useState } from "react";
+import { useDispatch, useSelector } from "react-redux";
+import {
+  fetchPathologies,
+  selectPathologies,
+  selectPathologiesStatus,
+  selectPathologiesError,
+} from "../../../../features/pathologySlice";
 
 const LS_KEY = "hms_path_reports";
 
@@ -9,6 +16,8 @@ function uid() {
 export default function PathologyReportList() {
   const [data, setData] = useState([]);
   const [search, setSearch] = useState("");
+  const dispatch = useDispatch();
+
   const [filter, setFilter] = useState("");
   const [showEdit, setShowEdit] = useState(false);
   const [showView, setShowView] = useState(false);
@@ -42,6 +51,7 @@ export default function PathologyReportList() {
 
   // Seed if empty
   useEffect(() => {
+    // keep existing local fallback but prefer server data when available
     const existing = loadData();
     if (existing.length === 0) {
       const sample = [
@@ -75,7 +85,55 @@ export default function PathologyReportList() {
     } else {
       setData(existing);
     }
+    // fetch server reports
+    if (dispatch) dispatch(fetchPathologies());
   }, []);
+
+  const pathologies = useSelector(selectPathologies) || [];
+  const pathologiesStatus = useSelector(selectPathologiesStatus);
+  const pathologiesError = useSelector(selectPathologiesError);
+
+  // when server data arrives, use it (override local data)
+  useEffect(() => {
+    if (pathologiesStatus === "succeeded" && Array.isArray(pathologies)) {
+      // normalize server items to expected table shape if necessary
+      const mapped = pathologies.map((p) => ({
+        id: p.id || p._id || uid(),
+        // prefer explicit server keys: patientName, patientAge, patientContact, doctorName
+        patient:
+          p.patientName ||
+          p.patient ||
+          (p.patientInfo && p.patientInfo.name) ||
+          "",
+        age:
+          p.patientAge || p.age || (p.patientInfo && p.patientInfo.age) || "",
+        phone:
+          p.patientContact ||
+          p.contact ||
+          (p.patientInfo && p.patientInfo.contact) ||
+          "",
+        doctor: p.doctorName || (p.doctor && p.doctor.name) || "",
+        date: p.collectedOn || p.date || "",
+        time: p.collectionTime || p.time || "",
+        status: p.status || p.reportStatus || "Pending",
+        test: Array.isArray(p.testResults)
+          ? p.testResults.map((t) => t.testName).join(", ")
+          : p.test || "",
+        report:
+          p.report || (p.testResults && JSON.stringify(p.testResults)) || "",
+      }));
+      setData(mapped);
+      // also cache to localStorage for offline fallback
+      try {
+        saveData(mapped);
+      } catch (e) {
+        /* ignore */
+      }
+    }
+    if (pathologiesStatus === "failed") {
+      console.error("Failed to load pathologies:", pathologiesError);
+    }
+  }, [pathologiesStatus, pathologies]);
 
   // Render/Filter Table Data
   const filtered = data
@@ -170,6 +228,36 @@ export default function PathologyReportList() {
               </span>
             </div>
           </div>
+
+          {/* Show error banner when server fetch fails */}
+          {pathologiesStatus === "failed" && (
+            <div className="alert alert-danger small d-flex justify-content-between align-items-center">
+              <div>
+                Failed to load reports.{" "}
+                {pathologiesError?.message || "Unauthorized or server error."}
+              </div>
+              <div className="d-flex gap-2">
+                <button
+                  className="btn btn-sm btn-outline-light"
+                  onClick={() => dispatch(fetchPathologies())}
+                >
+                  Retry
+                </button>
+                <button
+                  className="btn btn-sm btn-light"
+                  onClick={() => {
+                    // clear token and navigate to login so user can re-authenticate
+                    try {
+                      localStorage.removeItem("jwtToken");
+                    } catch (e) {}
+                    window.location.href = "/login";
+                  }}
+                >
+                  Login
+                </button>
+              </div>
+            </div>
+          )}
 
           {/* Table */}
           <div className="table-responsive">

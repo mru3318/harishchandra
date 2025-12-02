@@ -10,6 +10,8 @@ export const createPathology = createAsyncThunk(
   async (payload, { rejectWithValue }) => {
     try {
       const token = getToken();
+      // debug token presence (will be visible in browser console)
+      console.debug("fetchPathologies - token present:", !!token);
       const headers = { "Content-Type": "application/json" };
       if (token) headers.Authorization = `Bearer ${token}`;
 
@@ -33,10 +35,39 @@ export const createPathology = createAsyncThunk(
   }
 );
 
+// Fetch all pathology reports (GET /pathology/all)
+export const fetchPathologies = createAsyncThunk(
+  "pathology/fetchPathologies",
+  async (_, { rejectWithValue }) => {
+    try {
+      const token = getToken();
+      const headers = { "Content-Type": "application/json" };
+      if (token) headers.Authorization = `Bearer ${token}`;
+
+      const res = await axios.get(`${API_BASE_URL}/pathology/all`, { headers });
+      const data = res.data?.data || res.data;
+      return data;
+    } catch (err) {
+      const payloadErr = err.response
+        ? {
+            message:
+              err.response.data?.message || err.response.data || err.message,
+            status: err.response.status,
+            url: err.config?.url,
+          }
+        : { message: err.message || "Network error", code: err.code };
+      return rejectWithValue(payloadErr);
+    }
+  }
+);
+
 const initialState = {
   createStatus: "idle",
   createError: null,
   lastCreated: null,
+  pathologies: [],
+  pathologiesStatus: "idle",
+  pathologiesError: null,
 };
 
 const pathologySlice = createSlice({
@@ -63,6 +94,23 @@ const pathologySlice = createSlice({
         state.createStatus = "failed";
         state.createError = action.payload || action.error.message;
       });
+
+    // fetch pathologies reducers
+    builder
+      .addCase(fetchPathologies.pending, (state) => {
+        state.pathologiesStatus = "loading";
+        state.pathologiesError = null;
+      })
+      .addCase(fetchPathologies.fulfilled, (state, action) => {
+        state.pathologiesStatus = "succeeded";
+        state.pathologies = Array.isArray(action.payload)
+          ? action.payload
+          : action.payload?.data || [];
+      })
+      .addCase(fetchPathologies.rejected, (state, action) => {
+        state.pathologiesStatus = "failed";
+        state.pathologiesError = action.payload || action.error.message;
+      });
   },
 });
 
@@ -77,3 +125,10 @@ export const selectCreatePathologyError = (state) =>
   state.pathology?.createError;
 export const selectLastCreatedPathology = (state) =>
   state.pathology?.lastCreated;
+
+// selectors for fetched pathologies
+export const selectPathologies = (state) => state.pathology?.pathologies || [];
+export const selectPathologiesStatus = (state) =>
+  state.pathology?.pathologiesStatus || "idle";
+export const selectPathologiesError = (state) =>
+  state.pathology?.pathologiesError || null;

@@ -69,12 +69,31 @@ export const fetchDoctorsByDepartment = createAsyncThunk(
   }
 );
 
+// Thunk to fetch doctor name-id pairs for searching
+export const fetchDoctorNameIds = createAsyncThunk(
+  "comman/fetchDoctorNameIds",
+  async (_, { rejectWithValue }) => {
+    try {
+      const res = await axios.get(`${API_BASE_URL}/doctor/name-ids`);
+      // debug: log the raw response to help diagnose empty suggestions
+      // console.debug("fetchDoctorNameIds response:", res.data);
+      // Expecting an array of { id, name } or mapping
+      const data = res.data?.data || res.data;
+      return data;
+    } catch (err) {
+      console.error("Failed to fetch doctor name-ids:", err);
+      return rejectWithValue(err.response?.data || err.message);
+    }
+  }
+);
+
 const commanSlice = createSlice({
   name: "comman",
   initialState: {
     patients: [],
     departments: [],
     doctors: [],
+    doctorNameIds: [],
     medicines: {}, // { id: name } mapping
     status: "idle", // 'idle' | 'loading' | 'succeeded' | 'failed'
     error: null,
@@ -82,6 +101,8 @@ const commanSlice = createSlice({
     medicinesError: null,
     doctorsStatus: "idle",
     doctorsError: null,
+    doctorNameIdsStatus: "idle",
+    doctorNameIdsError: null,
   },
   reducers: {
     // optional reducers if needed in future
@@ -170,6 +191,30 @@ const commanSlice = createSlice({
         state.doctorsStatus = "failed";
         state.doctorsError = action.payload || action.error.message;
       });
+
+    // doctor name-ids reducers
+    builder
+      .addCase(fetchDoctorNameIds.pending, (state) => {
+        state.doctorNameIdsStatus = "loading";
+        state.doctorNameIdsError = null;
+      })
+      .addCase(fetchDoctorNameIds.fulfilled, (state, action) => {
+        state.doctorNameIdsStatus = "succeeded";
+        // normalize to array of objects
+        if (Array.isArray(action.payload)) state.doctorNameIds = action.payload;
+        else if (action.payload && typeof action.payload === "object") {
+          // could be mapping {id: name}
+          const arr = Object.keys(action.payload).map((k) => ({
+            id: k,
+            name: action.payload[k],
+          }));
+          state.doctorNameIds = arr;
+        } else state.doctorNameIds = [];
+      })
+      .addCase(fetchDoctorNameIds.rejected, (state, action) => {
+        state.doctorNameIdsStatus = "failed";
+        state.doctorNameIdsError = action.payload || action.error.message;
+      });
   },
 });
 
@@ -192,6 +237,14 @@ export const selectMedicinesStatus = (state) =>
   state.comman?.medicinesStatus || "idle";
 export const selectMedicinesError = (state) =>
   state.comman?.medicinesError || null;
+
+// selector for doctor name ids
+export const selectDoctorNameIds = (state) => state.comman?.doctorNameIds || [];
+// console.log("Selector - Doctor Name IDs:", selectDoctorNameIds);
+export const selectDoctorNameIdsStatus = (state) =>
+  state.comman?.doctorNameIdsStatus || "idle";
+export const selectDoctorNameIdsError = (state) =>
+  state.comman?.doctorNameIdsError || null;
 
 export default commanSlice.reducer;
 

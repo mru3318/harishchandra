@@ -11,6 +11,7 @@ export default function MyProfile() {
   );
 
   const currentUser = useSelector(selectCurrentUser);
+  console.log("Current User:", currentUser);
 
   const [districts, setDistricts] = useState([]);
 

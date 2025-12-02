@@ -361,20 +361,26 @@ export default function ManageDonor() {
 
     // create modal refs — guard against missing bootstrap JS (avoid TypeError)
     async function initBootstrapModals() {
-      // We expect Bootstrap JS to be provided via CDN (window.bootstrap).
-      // Do not attempt to dynamically import the package from node_modules.
-      if (typeof window.bootstrap === "undefined") {
-        console.warn(
-          "Bootstrap JS not available on window (expected via CDN). Modal initialization skipped."
-        );
-        return;
-      }
-
+      // If Bootstrap JS is loaded via CDN it exposes `window.bootstrap`.
+      // Initialize modal instances only when present. Do not attempt dynamic
+      // imports (app is running with CDN-provided Bootstrap per project setup).
       const editEl = document.getElementById("editDonorModal");
       const viewEl = document.getElementById("viewDonorModal");
-      if (editEl && viewEl && window.bootstrap && window.bootstrap.Modal) {
-        editModalRef.current = new window.bootstrap.Modal(editEl);
-        viewModalRef.current = new window.bootstrap.Modal(viewEl);
+      if (
+        typeof window !== "undefined" &&
+        window.bootstrap &&
+        window.bootstrap.Modal
+      ) {
+        try {
+          if (editEl) editModalRef.current = new window.bootstrap.Modal(editEl);
+          if (viewEl) viewModalRef.current = new window.bootstrap.Modal(viewEl);
+        } catch (err) {
+          console.warn("Bootstrap Modal initialization failed:", err);
+        }
+      } else {
+        console.warn(
+          "Bootstrap JS not detected on window; modal init skipped (expected when loading via CDN)."
+        );
       }
     }
 

@@ -137,6 +137,11 @@ const AddDepartment = () => {
                 onChange={handleChange}
                 className="form-control"
                 placeholder="Enter department name"
+                onKeyDown={(e) => {
+                  if (/[0-9]/.test(e.key)) {
+                    e.preventDefault();
+                  }
+                }}
                 required
               />
             </div>
@@ -157,6 +162,11 @@ const AddDepartment = () => {
                 onChange={handleChange}
                 className="form-control"
                 placeholder="Enter department head"
+                onKeyDown={(e) => {
+                  if (/[0-9]/.test(e.key)) {
+                    e.preventDefault();
+                  }
+                }}
                 required
               />
             </div>
