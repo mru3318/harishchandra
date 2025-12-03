@@ -24,6 +24,23 @@ export const fetchRadiologyTechnicians = createAsyncThunk(
   }
 );
 
+// Thunk to fetch all radiology reports
+export const fetchRadiologies = createAsyncThunk(
+  "radiology/fetchRadiologies",
+  async (_, { rejectWithValue }) => {
+    try {
+      const token = getToken();
+      const headers = {};
+      if (token) headers.Authorization = `Bearer ${token}`;
+      const res = await axios.get(`${API_BASE_URL}/radiology/all`, { headers });
+      const data = res.data?.data || res.data;
+      return data;
+    } catch (err) {
+      return rejectWithValue(err.response?.data || err.message);
+    }
+  }
+);
+
 // Create radiology report (POST /radiology/create)
 export const createRadiology = createAsyncThunk(
   "radiology/createRadiology",
@@ -66,6 +83,9 @@ const initialState = {
   technicians: [],
   techniciansStatus: "idle",
   techniciansError: null,
+  radiologies: [],
+  radiologiesStatus: "idle",
+  radiologiesError: null,
 };
 
 const radiologySlice = createSlice({
@@ -108,6 +128,22 @@ const radiologySlice = createSlice({
         state.techniciansStatus = "failed";
         state.techniciansError = action.payload || action.error.message;
       });
+    // fetch all radiology reports
+    builder
+      .addCase(fetchRadiologies.pending, (state) => {
+        state.radiologiesStatus = "loading";
+        state.radiologiesError = null;
+      })
+      .addCase(fetchRadiologies.fulfilled, (state, action) => {
+        state.radiologiesStatus = "succeeded";
+        state.radiologies = Array.isArray(action.payload)
+          ? action.payload
+          : action.payload?.data || [];
+      })
+      .addCase(fetchRadiologies.rejected, (state, action) => {
+        state.radiologiesStatus = "failed";
+        state.radiologiesError = action.payload || action.error.message;
+      });
   },
 });
 
@@ -130,3 +166,10 @@ export const selectRadiologyTechniciansStatus = (state) =>
   state.radiology?.techniciansStatus || "idle";
 export const selectRadiologyTechniciansError = (state) =>
   state.radiology?.techniciansError || null;
+
+// selectors for radiologies
+export const selectRadiologies = (state) => state.radiology?.radiologies || [];
+export const selectRadiologiesStatus = (state) =>
+  state.radiology?.radiologiesStatus || "idle";
+export const selectRadiologiesError = (state) =>
+  state.radiology?.radiologiesError || null;

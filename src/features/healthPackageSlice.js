@@ -85,13 +85,8 @@ export const updateHealthPackage = createAsyncThunk(
     try {
       console.log("Updating health package:", id, packageData);
 
-      // Allow sending FormData (with files) or JSON. If FormData, do not set Content-Type
-      let config = {};
-      if (packageData instanceof FormData) {
-        config = {};
-      } else {
-        config = { headers: { "Content-Type": "application/json" } };
-      }
+      // Don't set Content-Type header - let axios handle it for FormData
+      const config = {};
 
       const response = await axios.put(
         `${API_BASE_URL}/health-package/${id}`,

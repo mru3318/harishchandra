@@ -1,8 +1,21 @@
 import React, { useState, useEffect, useRef, useCallback } from "react";
+import { useDispatch, useSelector } from "react-redux";
+import { getToken } from "../../../../utils/authToken";
+import {
+  fetchRadiologies,
+  selectRadiologies,
+  selectRadiologiesStatus,
+  selectRadiologiesError,
+} from "../../../../features/radiologySlice";
 
 const LS_KEY = "hms_radiology_reports";
 
 const RadiologyReportList = () => {
+  const dispatch = useDispatch();
+  const radiologies = useSelector(selectRadiologies);
+  const radiologiesStatus = useSelector(selectRadiologiesStatus);
+  const radiologiesError = useSelector(selectRadiologiesError);
+
   const [reports, setReports] = useState([]);
   const [searchQuery, setSearchQuery] = useState("");
   const [statusFilter, setStatusFilter] = useState("");
@@ -10,74 +23,106 @@ const RadiologyReportList = () => {
   const [editReportData, setEditReportData] = useState({});
   const [deleteId, setDeleteId] = useState(null);
   const [showEdit, setShowEdit] = useState(false);
+  const [selectedScan, setSelectedScan] = useState(null);
 
   const viewModalRef = useRef(null);
   const deleteModalRef = useRef(null);
+  const scanModalRef = useRef(null);
 
-  // Load data from localStorage
-  const loadData = () => JSON.parse(localStorage.getItem(LS_KEY) || "[]");
-  const saveData = (list) => localStorage.setItem(LS_KEY, JSON.stringify(list));
-
-  const uid = () => "id_" + Math.random().toString(36).slice(2, 9);
-
-  // Seed initial data if empty
-  const seedIfEmpty = useCallback(() => {
-    const data = loadData();
-    if (data.length) return;
-    const initialData = [
-      {
-        id: uid(),
-        patient: "Amit Verma",
-        age: 42,
-        phone: "9876543210",
-        doctor: "Dr. Mehta",
-        date: "2025-02-15",
-        time: "10:30 AM",
-        status: "Pending",
-        test: "Chest X-Ray",
-        report: "Mild bilateral infiltration",
-      },
-      {
-        id: uid(),
-        patient: "Priya Singh",
-        age: 29,
-        phone: "9123456780",
-        doctor: "Dr. Kothari",
-        date: "2025-02-10",
-        time: "02:20 PM",
-        status: "Completed",
-        test: "MRI Brain",
-        report: "No abnormal enhancement",
-      },
-    ];
-    saveData(initialData);
-    setReports(initialData);
-  }, []);
-
-  // Seed data on first mount. seedIfEmpty is stable in this module.
+  // Fetch radiology reports from backend on mount
   useEffect(() => {
-    seedIfEmpty();
-    setReports(loadData());
-  }, [seedIfEmpty]);
+    dispatch(fetchRadiologies());
+  }, [dispatch]);
+
+  // Update local reports state when radiologies from Redux change
+  useEffect(() => {
+    console.log("radiologiesStatus:", radiologiesStatus);
+    console.log("radiologies raw:", radiologies);
+    console.log("radiologies is array?", Array.isArray(radiologies));
+
+    if (radiologiesStatus === "succeeded") {
+      // Handle both array and nested data structures
+      let reportsData = radiologies;
+
+      // Check if data is nested (common backend pattern)
+      if (!Array.isArray(radiologies) && radiologies?.data) {
+        reportsData = radiologies.data;
+      }
+
+      if (!Array.isArray(reportsData)) {
+        console.error("Reports data is not an array:", reportsData);
+        setReports([]);
+        return;
+      }
+
+      console.log("Processing reports data:", reportsData);
+
+      // Map backend data structure to component's expected structure
+      const mappedReports = reportsData.map((r) => {
+        console.log("Mapping report:", r);
+        return {
+          // Keep all original data first
+          ...r,
+          // Then override with mapped UI fields
+          id: r.id,
+          patient: r.patientName || "",
+          age: r.patientAge || "",
+          gender: r.patientGender || "",
+          phone: r.patientContact || "",
+          doctor: r.doctorName || "",
+          date: r.createdAt
+            ? new Date(r.createdAt).toISOString().split("T")[0]
+            : "",
+          time: r.createdAt ? new Date(r.createdAt).toLocaleTimeString() : "",
+          status: r.reportStatus || "Pending",
+          test: r.scanDetails?.[0]?.scanName || "N/A",
+          report: r.finalSummary || "",
+          scanDetails: r.scanDetails || [],
+          files:
+            r.scanDetails?.flatMap((scan) =>
+              scan.scanFile ? [scan.scanFile] : []
+            ) || [],
+        };
+      });
+
+      console.log("Final mapped reports:", mappedReports);
+      setReports(mappedReports);
+    }
+  }, [radiologies, radiologiesStatus]);
 
   const statusBadge = (status) => {
-    if (status === "Completed")
+    const statusUpper = String(status || "").toUpperCase();
+    if (statusUpper === "COMPLETED")
       return <span className="badge text-bg-success">Completed</span>;
-    if (status === "Delivered")
+    if (statusUpper === "DELIVERED")
       return <span className="badge text-bg-secondary">Delivered</span>;
-    return <span className="badge text-bg-warning">Pending</span>;
+    if (statusUpper === "PENDING")
+      return <span className="badge text-bg-warning">Pending</span>;
+    return <span className="badge text-bg-warning">{status || "Pending"}</span>;
   };
 
   const filteredReports = reports
-    .filter((r) => (statusFilter ? r.status === statusFilter : true))
-    .filter((r) =>
-      searchQuery
-        ? r.patient.toLowerCase().includes(searchQuery.toLowerCase()) ||
-          r.phone.includes(searchQuery) ||
-          r.test.toLowerCase().includes(searchQuery.toLowerCase())
-        : true
-    )
-    .sort((a, b) => new Date(b.date || 0) - new Date(a.date || 0));
+    .filter((r) => {
+      if (!statusFilter) return true;
+      const rStatus = String(r.status || r.reportStatus || "").toUpperCase();
+      const filterStatus = String(statusFilter).toUpperCase();
+      return rStatus === filterStatus;
+    })
+    .filter((r) => {
+      if (!searchQuery) return true;
+      const query = searchQuery.toLowerCase();
+      const patient = String(r.patient || r.patientName || "").toLowerCase();
+      const phone = String(r.phone || r.patientContact || "");
+      const test = String(r.test || "").toLowerCase();
+      return (
+        patient.includes(query) || phone.includes(query) || test.includes(query)
+      );
+    })
+    .sort(
+      (a, b) =>
+        new Date(b.date || b.createdAt || 0) -
+        new Date(a.date || a.createdAt || 0)
+    );
 
   const openEditModal = (report) => {
     setEditReportData({ ...report, status: report?.status || "Pending" });
@@ -89,15 +134,182 @@ const RadiologyReportList = () => {
     new window.bootstrap.Modal(viewModalRef.current).show();
   };
 
+  const openViewImageScanModal = (scanData) => {
+    // Normalize scan data to array of file URLs
+    let files = [];
+
+    // SVG placeholder as data URI
+    const placeholderSVG = `data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='800' height='600' viewBox='0 0 800 600'%3E%3Crect fill='%2301C0C8' width='800' height='600'/%3E%3Ctext x='50%25' y='45%25' font-family='Arial, sans-serif' font-size='32' fill='white' text-anchor='middle' dominant-baseline='middle'%3ESample X-Ray Scan%3C/text%3E%3Ctext x='50%25' y='55%25' font-family='Arial, sans-serif' font-size='18' fill='white' text-anchor='middle' dominant-baseline='middle'%3ENo scan data available%3C/text%3E%3C/svg%3E`;
+
+    if (!scanData) {
+      // Add dummy image when no scan data
+      files = [
+        {
+          url: placeholderSVG,
+          name: "sample-scan.jpg",
+        },
+      ];
+    } else if (typeof scanData === "string") {
+      files = [{ url: scanData, name: scanData.split("/").pop() }];
+    } else if (Array.isArray(scanData)) {
+      files = scanData.map((s) => {
+        if (typeof s === "string") return { url: s, name: s.split("/").pop() };
+        // Handle backend scanDetails structure
+        if (s.scanFile) {
+          const scanFile =
+            typeof s.scanFile === "string"
+              ? s.scanFile
+              : s.scanFile.url || s.scanFile.path;
+          return {
+            url: scanFile,
+            name: s.scanName || s.name || scanFile.split("/").pop(),
+          };
+        }
+        return {
+          url: s.url || s.fileUrl || s.path,
+          name:
+            s.name ||
+            s.fileName ||
+            s.scanName ||
+            (s.url || s.fileUrl || s.path || "").split("/").pop(),
+        };
+      });
+    } else if (typeof scanData === "object") {
+      if (scanData.url || scanData.fileUrl || scanData.file) {
+        files = [
+          {
+            url: scanData.url || scanData.fileUrl || scanData.file,
+            name:
+              scanData.name ||
+              scanData.fileName ||
+              (scanData.url || scanData.fileUrl || scanData.file || "")
+                .split("/")
+                .pop(),
+          },
+        ];
+      } else if (Array.isArray(scanData.files)) {
+        files = scanData.files.map((f) => {
+          if (typeof f === "string")
+            return { url: f, name: f.split("/").pop() };
+          return {
+            url: f.url || f.fileUrl || f.path,
+            name:
+              f.name ||
+              f.fileName ||
+              (f.url || f.fileUrl || f.path || "").split("/").pop(),
+          };
+        });
+      }
+    }
+
+    // SVG placeholder as data URI
+    const placeholderSVG2 = `data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='800' height='600' viewBox='0 0 800 600'%3E%3Crect fill='%2301C0C8' width='800' height='600'/%3E%3Ctext x='50%25' y='45%25' font-family='Arial, sans-serif' font-size='32' fill='white' text-anchor='middle' dominant-baseline='middle'%3ESample X-Ray Scan%3C/text%3E%3Ctext x='50%25' y='55%25' font-family='Arial, sans-serif' font-size='18' fill='white' text-anchor='middle' dominant-baseline='middle'%3ENo scan data available%3C/text%3E%3C/svg%3E`;
+
+    // If files array is still empty after processing, add dummy image
+    if (files.length === 0) {
+      files = [
+        {
+          url: placeholderSVG2,
+          name: "sample-scan.jpg",
+        },
+      ];
+    }
+
+    setSelectedScan(files);
+    new window.bootstrap.Modal(scanModalRef.current).show();
+  };
+
+  const downloadFile = async (fileUrl, filename) => {
+    try {
+      const token = getToken();
+      const headers = token ? { Authorization: `Bearer ${token}` } : {};
+      const res = await fetch(fileUrl, { headers });
+      if (!res.ok) throw new Error("Failed to fetch file");
+      const blob = await res.blob();
+      const url = window.URL.createObjectURL(blob);
+      const a = document.createElement("a");
+      a.href = url;
+      a.download = filename || fileUrl.split("/").pop() || "download";
+      document.body.appendChild(a);
+      a.click();
+      a.remove();
+      window.URL.revokeObjectURL(url);
+    } catch (err) {
+      console.error("Download failed:", err);
+      alert("Failed to download file");
+    }
+  };
+
+  const gatherFilesFromReport = (report) => {
+    if (!report) return [];
+    const files = [];
+
+    // Handle files array
+    if (Array.isArray(report.files) && report.files.length) {
+      report.files.forEach((f) => {
+        if (typeof f === "string")
+          files.push({ url: f, name: f.split("/").pop() });
+        else
+          files.push({
+            url: f.url || f.path || f.fileUrl,
+            name:
+              f.name ||
+              f.filename ||
+              f.fileName ||
+              (f.url || f.path || f.fileUrl || "").split("/").pop(),
+          });
+      });
+      return files;
+    }
+
+    // Handle scanDetails array from backend
+    if (Array.isArray(report.scanDetails)) {
+      report.scanDetails.forEach((s, idx) => {
+        // Handle direct scanFile property
+        if (s.scanFile) {
+          const scanFile =
+            typeof s.scanFile === "string"
+              ? s.scanFile
+              : s.scanFile.url || s.scanFile.path;
+          if (scanFile) {
+            files.push({
+              url: scanFile,
+              name: s.scanName || `scan_${idx + 1}`,
+            });
+          }
+        }
+        // Handle fileUrl property
+        if (s.fileUrl) {
+          files.push({
+            url: s.fileUrl,
+            name: s.fileName || s.scanName || `scan_${idx + 1}`,
+          });
+        }
+        // Handle nested files array
+        if (s.files && Array.isArray(s.files)) {
+          s.files.forEach((f) => {
+            if (typeof f === "string")
+              files.push({ url: f, name: f.split("/").pop() });
+            else
+              files.push({
+                url: f.url || f.path || f.fileUrl,
+                name: f.name || f.filename || f.fileName,
+              });
+          });
+        }
+      });
+    }
+    return files;
+  };
+
   const openDeleteModal = (id) => {
     setDeleteId(id);
     new window.bootstrap.Modal(deleteModalRef.current).show();
   };
 
   const handleDelete = () => {
-    const updated = reports.filter((r) => r.id !== deleteId);
-    saveData(updated);
-    setReports(updated);
+    // TODO: Implement backend delete endpoint
+    alert("Delete functionality requires backend API endpoint");
     window.bootstrap.Modal.getInstance(deleteModalRef.current).hide();
   };
 
@@ -114,65 +326,182 @@ const RadiologyReportList = () => {
       return;
     }
 
-    const updated = loadData();
-    const obj = { ...editReportData, id: editReportData.id || uid() };
-
-    const idx = updated.findIndex((x) => x.id === obj.id);
-    if (idx >= 0) updated[idx] = obj;
-    else updated.push(obj);
-
-    saveData(updated);
-    setReports(updated);
+    // TODO: Implement backend update endpoint
+    alert("Edit functionality requires backend API endpoint");
     setShowEdit(false);
   };
 
   const printReport = () => {
     if (!selectedReport) return;
-    const node = document.getElementById("printableArea");
-    if (!node) return;
 
-    // Collect styles from current document head so printed window looks same
-    const headHtml = Array.from(
-      document.querySelectorAll('head link[rel="stylesheet"], head style')
-    )
-      .map((n) => n.outerHTML)
-      .join("\n");
+    const printWindow = window.open("", "_blank", "width=900,height=650");
 
-    const printHtml = `
-      <html>
-        <head>
-          <meta charset="utf-8" />
-          ${headHtml}
-          <style>
-            /* Ensure body background is white for print */
-            body { background: #fff; color: #000; }
-          </style>
-        </head>
-        <body>
-          ${node.outerHTML}
-        </body>
-      </html>`;
-
-    const w = window.open("", "_blank", "noopener,noreferrer");
-    if (!w) {
-      // fallback to original behaviour if popup blocked
-      window.print();
+    if (!printWindow) {
+      alert("Please allow popups to print the report");
       return;
     }
 
-    w.document.open();
-    w.document.write(printHtml);
-    w.document.close();
-    // wait for resources to load then print
-    w.focus();
-    setTimeout(() => {
-      try {
-        w.print();
-        w.close();
-      } catch {
-        // ignore
+    const printContent = `
+<!DOCTYPE html>
+<html>
+<head>
+  <meta charset="UTF-8" />
+  <title>Radiology Report - ${selectedReport.patient}</title>
+
+  <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.2/dist/css/bootstrap.min.css" rel="stylesheet">
+
+  <style>
+    body {
+      background: #fff;
+      padding: 20px;
+      font-family: Arial, sans-serif;
+      color: #000;
+    }
+
+    .report-box {
+      border: 2px solid #000;
+      padding: 25px;
+      width: 100%;
+      max-width: 100%;
+      margin: auto;
+      background: white;
+    }
+
+    .header-area {
+      text-align: center;
+      border-bottom: 2px solid #000;
+      padding-bottom: 15px;
+      margin-bottom: 20px;
+    }
+
+    .header-area img {
+      height: 70px;
+      margin-bottom: 10px;
+    }
+
+    .hospital-name {
+      font-size: 24px;
+      font-weight: bold;
+      letter-spacing: 1px;
+      text-transform: uppercase;
+      color: #01c0c8;
+    }
+
+    .dept {
+      font-size: 14px;
+      color: #444;
+      margin-top: -5px;
+    }
+
+    .section-title {
+      font-size: 18px;
+      font-weight: bold;
+      border-left: 4px solid #01c0c8;
+      padding-left: 10px;
+      margin: 25px 0 10px 0;
+    }
+
+    .info-grid {
+      display: grid;
+      grid-template-columns: 160px auto;
+      row-gap: 6px;
+      font-size: 14px;
+    }
+
+    .info-label {
+      font-weight: bold;
+    }
+
+    pre {
+      margin-top: 10px;
+      padding: 12px;
+      background: #f5f5f5;
+      border: 1px solid #ccc;
+      border-radius: 6px;
+      white-space: pre-wrap;
+      font-size: 14px;
+    }
+
+    @media print {
+      body {
+        padding: 0;
       }
-    }, 300);
+      .report-box {
+        border: none;
+        padding: 0;
+      }
+    }
+  </style>
+</head>
+
+<body>
+
+  <div class="report-box">
+
+    <div class="header-area">
+      <img src="/assets/images/harishchandra-logo-mini.png" alt="Hospital Logo">
+      <div class="hospital-name">
+        Harishchandra Multispeciality Hospital
+      </div>
+      <div class="dept">Department of Radiology</div>
+    </div>
+
+    <div class="section-title">Patient Information</div>
+
+    <div class="info-grid">
+      <div class="info-label">Name:</div> <div>${
+        selectedReport.patient || "N/A"
+      }</div>
+      <div class="info-label">Age:</div> <div>${
+        selectedReport.age || "N/A"
+      }</div>
+      <div class="info-label">Gender:</div> <div>${
+        selectedReport.gender || "N/A"
+      }</div>
+      <div class="info-label">Phone:</div> <div>${
+        selectedReport.phone || "N/A"
+      }</div>
+      <div class="info-label">Ref. Doctor:</div> <div>${
+        selectedReport.doctor || "N/A"
+      }</div>
+    </div>
+
+    <div class="section-title">Scan Details</div>
+
+    <div class="info-grid">
+      <div class="info-label">Scan Date:</div> <div>${
+        selectedReport.date || "N/A"
+      }</div>
+      <div class="info-label">Scan Time:</div> <div>${
+        selectedReport.time || "N/A"
+      }</div>
+      <div class="info-label">Scan Type:</div> <div>${
+        selectedReport.test || "N/A"
+      }</div>
+      <div class="info-label">Status:</div> <div>${
+        selectedReport.status || "Pending"
+      }</div>
+    </div>
+
+    <div class="section-title">Radiology Findings</div>
+
+    <pre>${selectedReport.report || "No findings recorded"}</pre>
+
+  </div>
+
+</body>
+</html>
+`;
+
+    printWindow.document.write(printContent);
+    printWindow.document.close();
+
+    printWindow.onload = () => {
+      setTimeout(() => {
+        printWindow.print();
+        printWindow.close();
+      }, 400);
+    };
   };
 
   return (
@@ -186,143 +515,234 @@ const RadiologyReportList = () => {
         </div>
 
         <div className="card-body">
-          <div className="row g-2 mb-3 align-items-center">
-            <div className="col-md-4 col-sm-8">
-              <input
-                type="search"
-                className="form-control form-control-sm"
-                placeholder="Search patient, phone, scan type..."
-                value={searchQuery}
-                onChange={(e) => setSearchQuery(e.target.value)}
-              />
+          {radiologiesStatus === "loading" && (
+            <div className="text-center py-4">
+              <div className="spinner-border text-primary" role="status">
+                <span className="visually-hidden">Loading...</span>
+              </div>
+              <p className="mt-2 text-muted">Loading radiology reports...</p>
             </div>
-            <div className="col-md-3 col-sm-4">
-              <select
-                className="form-select form-select-sm"
-                value={statusFilter}
-                onChange={(e) => setStatusFilter(e.target.value)}
-              >
-                <option value="">All status</option>
-                <option value="Pending">Pending</option>
-                <option value="Completed">Completed</option>
-                <option value="Delivered">Delivered</option>
-              </select>
-            </div>
-            <div className="col-md-5 col-sm-12 text-end">
-              <span
-                className="fw-semibold"
-                style={{ fontSize: "17px", color: "#01A3A4" }}
-              >
-                Total: {filteredReports.length}
-              </span>
-            </div>
-          </div>
+          )}
 
-          <div className="table-responsive">
-            <table className="table table-bordered table-sm align-middle">
-              <thead className="table-light">
-                <tr className="text-center">
-                  <th>Patient</th>
-                  <th>Age</th>
-                  <th>Phone</th>
-                  <th>Ref. Doctor</th>
-                  <th>Date</th>
-                  <th>Scan Type</th>
-                  <th>Status</th>
-                  <th style={{ minWidth: 130 }}>Actions</th>
-                </tr>
-              </thead>
-              <tbody>
-                {filteredReports.length === 0 && (
-                  <tr>
-                    <td colSpan="8" className="text-center text-muted small">
-                      No reports found
-                    </td>
-                  </tr>
-                )}
-                {filteredReports.map((r) => (
-                  <tr key={r.id} className="small text-center">
-                    <td>{r.patient}</td>
-                    <td>{r.age}</td>
-                    <td>{r.phone}</td>
-                    <td>{r.doctor}</td>
-                    <td>{r.date}</td>
-                    <td>{r.test}</td>
-                    <td>{statusBadge(r.status)}</td>
-                    <td>
-                      <div className="action-buttons d-inline-flex gap-2">
-                        <button
-                          className="btn btn-outline-primary btn-sm"
-                          onClick={() => openViewModal(r)}
+          {radiologiesStatus === "failed" && (
+            <div className="alert alert-danger" role="alert">
+              <i className="fa-solid fa-exclamation-triangle me-2"></i>
+              Error loading reports:{" "}
+              {typeof radiologiesError === "object"
+                ? radiologiesError?.message || JSON.stringify(radiologiesError)
+                : radiologiesError}
+            </div>
+          )}
+
+          {radiologiesStatus === "succeeded" && (
+            <>
+              <div className="row g-2 mb-3 align-items-center">
+                <div className="col-md-4 col-sm-8">
+                  <input
+                    type="search"
+                    className="form-control form-control-sm"
+                    placeholder="Search patient, phone, scan type..."
+                    value={searchQuery}
+                    onChange={(e) => setSearchQuery(e.target.value)}
+                  />
+                </div>
+                <div className="col-md-3 col-sm-4">
+                  <select
+                    className="form-select form-select-sm"
+                    value={statusFilter}
+                    onChange={(e) => setStatusFilter(e.target.value)}
+                  >
+                    <option value="">All status</option>
+                    <option value="Pending">Pending</option>
+                    <option value="Completed">Completed</option>
+                    <option value="Delivered">Delivered</option>
+                  </select>
+                </div>
+                <div className="col-md-5 col-sm-12 text-end">
+                  <span
+                    className="fw-semibold"
+                    style={{ fontSize: "17px", color: "#01A3A4" }}
+                  >
+                    Total: {filteredReports.length}
+                  </span>
+                </div>
+              </div>
+
+              <div className="table-responsive">
+                <table className="table table-bordered table-sm align-middle">
+                  <thead className="table-light">
+                    <tr className="text-center">
+                      <th>Patient</th>
+                      <th>Age</th>
+                      <th>Phone</th>
+                      <th>Ref. Doctor</th>
+                      <th>Date</th>
+                      <th>Scan Type</th>
+                      <th>View Scan</th>
+                      <th>Status</th>
+                      <th style={{ minWidth: 130 }}>Actions</th>
+                    </tr>
+                  </thead>
+                  <tbody>
+                    {filteredReports.length === 0 && (
+                      <tr>
+                        <td
+                          colSpan="8"
+                          className="text-center text-muted small"
                         >
-                          <i className="fa-regular fa-eye"></i>
-                        </button>
-                        <button
-                          className="btn btn-outline-warning btn-sm"
-                          onClick={() => openEditModal(r)}
-                        >
-                          <i className="fa-solid fa-pen"></i>
-                        </button>
-                        <button
-                          className="btn btn-outline-danger btn-sm"
-                          onClick={() => openDeleteModal(r.id)}
-                        >
-                          <i className="fa-solid fa-trash"></i>
-                        </button>
-                      </div>
-                    </td>
-                  </tr>
-                ))}
-              </tbody>
-            </table>
-          </div>
+                          No reports found
+                        </td>
+                      </tr>
+                    )}
+                    {filteredReports.map((r) => (
+                      <tr key={r.id} className="small text-center">
+                        <td>{r.patient || r.patientName || "N/A"}</td>
+                        <td>{r.age || r.patientAge || "N/A"}</td>
+                        <td>{r.phone || r.patientContact || "N/A"}</td>
+                        <td>{r.doctor || r.doctorName || "N/A"}</td>
+
+                        <td>
+                          {r.date ||
+                            (r.createdAt
+                              ? new Date(r.createdAt).toLocaleDateString()
+                              : "N/A")}
+                        </td>
+
+                        <td>
+                          {r.test || r.scanDetails?.[0]?.scanName || "N/A"}
+                        </td>
+                        <td>
+                          <button
+                            className="btn btn-outline-info btn-sm"
+                            onClick={() => {
+                              // Pass scanDetails or files from the report
+                              const scanData =
+                                r.scanDetails || r.files || r.scan;
+                              openViewImageScanModal(scanData);
+                            }}
+                          >
+                            View Scan
+                          </button>
+                        </td>
+                        <td>{statusBadge(r.status)}</td>
+                        <td>
+                          <div className="action-buttons d-inline-flex gap-2">
+                            <button
+                              className="btn btn-outline-primary btn-sm"
+                              onClick={() => openViewModal(r)}
+                            >
+                              <i className="fa-regular fa-eye"></i>
+                            </button>
+                            <button
+                              className="btn btn-outline-warning btn-sm"
+                              onClick={() => openEditModal(r)}
+                            >
+                              <i className="fa-solid fa-pen"></i>
+                            </button>
+                            <button
+                              className="btn btn-outline-danger btn-sm"
+                              onClick={() => openDeleteModal(r.id)}
+                            >
+                              <i className="fa-solid fa-trash"></i>
+                            </button>
+                          </div>
+                        </td>
+                      </tr>
+                    ))}
+                  </tbody>
+                </table>
+              </div>
+            </>
+          )}
         </div>
       </div>
 
       {/* View Modal */}
       <div className="modal fade" ref={viewModalRef} tabIndex="-1">
         <div className="modal-dialog modal-lg">
-          <div className="modal-content" id="printableArea">
+          <div className="modal-content">
             <div className="modal-header" style={{ background: "#01C0C8" }}>
               <h5 className="modal-title">Radiology Report Details</h5>
               <button className="btn-close" data-bs-dismiss="modal"></button>
             </div>
-            {selectedReport && (
-              <div className="modal-body small">
-                <p>
-                  <strong>Patient:</strong> {selectedReport.patient}
-                </p>
-                <p>
-                  <strong>Age:</strong> {selectedReport.age}
-                </p>
-                <p>
-                  <strong>Gender:</strong> {selectedReport.gender}
-                </p>
-                <p>
-                  <strong>Phone:</strong> {selectedReport.phone}
-                </p>
-                <p>
-                  <strong>Ref. Doctor:</strong> {selectedReport.doctor}
-                </p>
-                <p>
-                  <strong>Report Date:</strong> {selectedReport.date}
-                </p>
-                <p>
-                  <strong>Scan Time:</strong> {selectedReport.time}
-                </p>
-                <p>
-                  <strong>Scan Type:</strong> {selectedReport.test}
-                </p>
-                <p>
-                  <strong>Status:</strong> {statusBadge(selectedReport.status)}
-                </p>
-                <hr />
-                <strong>Findings:</strong>
-                <pre style={{ whiteSpace: "pre-wrap" }}>
-                  {selectedReport.report}
-                </pre>
-              </div>
-            )}
+
+            {/* ⬇ ONLY THIS PART SHOULD BE PRINTED */}
+            <div id="printableArea">
+              {selectedReport && (
+                <div className="modal-body small">
+                  <p>
+                    <strong>Patient:</strong> {selectedReport.patient}
+                  </p>
+                  <p>
+                    <strong>Age:</strong> {selectedReport.age}
+                  </p>
+                  <p>
+                    <strong>Gender:</strong> {selectedReport.gender}
+                  </p>
+                  <p>
+                    <strong>Phone:</strong> {selectedReport.phone}
+                  </p>
+                  <p>
+                    <strong>Ref. Doctor:</strong> {selectedReport.doctor}
+                  </p>
+                  <p>
+                    <strong>Report Date:</strong> {selectedReport.date}
+                  </p>
+                  <p>
+                    <strong>Scan Time:</strong> {selectedReport.time}
+                  </p>
+                  <p>
+                    <strong>Scan Type:</strong> {selectedReport.test}
+                  </p>
+                  <p>
+                    <strong>Status:</strong>{" "}
+                    {statusBadge(selectedReport.status)}
+                  </p>
+                  <hr />
+                  <strong>Findings:</strong>
+                  <pre style={{ whiteSpace: "pre-wrap" }}>
+                    {selectedReport.report}
+                  </pre>
+                  {/* Files / attachments */}
+                  {(() => {
+                    const files = gatherFilesFromReport(selectedReport);
+                    if (!files.length) return null;
+                    return (
+                      <div className="mt-3">
+                        <strong>Attachments:</strong>
+                        <ul className="list-unstyled small mt-2">
+                          {files.map((f, i) => (
+                            <li
+                              key={i}
+                              className="mb-1 d-flex align-items-center gap-2"
+                            >
+                              <span
+                                style={{
+                                  maxWidth: 300,
+                                  overflow: "hidden",
+                                  textOverflow: "ellipsis",
+                                  display: "inline-block",
+                                }}
+                              >
+                                {f.name}
+                              </span>
+                              <button
+                                className="btn btn-sm btn-outline-primary"
+                                onClick={() => downloadFile(f.url, f.name)}
+                              >
+                                <i className="fa-solid fa-download me-1"></i>{" "}
+                                Download
+                              </button>
+                            </li>
+                          ))}
+                        </ul>
+                      </div>
+                    );
+                  })()}
+                </div>
+              )}
+            </div>
+
             <div className="modal-footer">
               <button
                 className="btn btn-secondary btn-sm"
@@ -330,6 +750,18 @@ const RadiologyReportList = () => {
               >
                 Close
               </button>
+              {selectedReport &&
+                gatherFilesFromReport(selectedReport).length > 0 && (
+                  <button
+                    className="btn btn-outline-primary btn-sm"
+                    onClick={() => {
+                      const files = gatherFilesFromReport(selectedReport);
+                      files.forEach((f) => downloadFile(f.url, f.name));
+                    }}
+                  >
+                    <i className="fa-solid fa-download me-1"></i> Download All
+                  </button>
+                )}
               <button
                 className="btn btn-sm text-white"
                 style={{ background: "#01C0C8" }}
@@ -362,6 +794,82 @@ const RadiologyReportList = () => {
               <button className="btn btn-danger btn-sm" onClick={handleDelete}>
                 Delete
               </button>
+            </div>
+          </div>
+        </div>
+      </div>
+
+      {/* Scan Viewer Modal */}
+      <div className="modal fade" ref={scanModalRef} tabIndex="-1">
+        <div className="modal-dialog modal-lg modal-dialog-centered">
+          <div className="modal-content">
+            <div className="modal-header" style={{ background: "#01C0C8" }}>
+              <h5 className="modal-title text-white">Scan Images</h5>
+              <button className="btn-close" data-bs-dismiss="modal"></button>
+            </div>
+            <div
+              className="modal-body text-center"
+              style={{
+                minHeight: "400px",
+                maxHeight: "70vh",
+                overflowY: "auto",
+              }}
+            >
+              {selectedScan && selectedScan.length > 0 ? (
+                <div className="row g-3">
+                  {selectedScan.map((file, idx) => {
+                    const isImage = /\.(jpg|jpeg|png|gif|bmp|webp|svg)$/i.test(
+                      file.name || file.url
+                    );
+                    return (
+                      <div key={idx} className="col-12">
+                        {isImage ? (
+                          <img
+                            src={file.url}
+                            alt={file.name}
+                            className="img-fluid rounded shadow-sm"
+                            style={{
+                              maxWidth: "100%",
+                              maxHeight: "500px",
+                              objectFit: "contain",
+                            }}
+                            onError={(e) => {
+                              e.target.style.display = "none";
+                              e.target.nextSibling.style.display = "block";
+                            }}
+                          />
+                        ) : null}
+                        <div
+                          style={{ display: isImage ? "none" : "block" }}
+                          className="alert alert-info"
+                        >
+                          <i className="fa-solid fa-file me-2"></i>
+                          {file.name}
+                        </div>
+                      </div>
+                    );
+                  })}
+                </div>
+              ) : (
+                <div className="alert alert-warning">
+                  No scan images available
+                </div>
+              )}
+            </div>
+            <div className="modal-footer justify-content-center">
+              {selectedScan && selectedScan.length > 0 && (
+                <button
+                  className="btn btn-primary"
+                  onClick={() => {
+                    selectedScan.forEach((file) => {
+                      downloadFile(file.url, file.name);
+                    });
+                  }}
+                >
+                  <i className="fa-solid fa-download me-2"></i>
+                  Download {selectedScan.length > 1 ? "All" : ""}
+                </button>
+              )}
             </div>
           </div>
         </div>

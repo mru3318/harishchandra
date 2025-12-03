@@ -1,15 +1,4 @@
 import React, { useEffect, useState } from "react";
-import { useDispatch, useSelector } from "react-redux";
-import {
-  fetchPathologies,
-  selectPathologies,
-  selectPathologiesStatus,
-  selectPathologiesError,
-  updatePathologyStatus,
-  deletePathology,
-} from "../../../../features/pathologySlice";
-import { NavLink } from "react-router-dom";
-import Swal from "sweetalert2";
 
 const LS_KEY = "hms_path_reports";
 
@@ -20,11 +9,14 @@ function uid() {
 export default function PathologyReportList() {
   const [data, setData] = useState([]);
   const [search, setSearch] = useState("");
-  const dispatch = useDispatch();
-
   const [filter, setFilter] = useState("");
+
   const [showEdit, setShowEdit] = useState(false);
   const [showView, setShowView] = useState(false);
+  const [showDelete, setShowDelete] = useState(false);
+
+  const [selectedReport, setSelectedReport] = useState(null);
+  const [deleteId, setDeleteId] = useState(null);
 
   const [form, setForm] = useState({
     id: "",
@@ -39,8 +31,6 @@ export default function PathologyReportList() {
     status: "Pending",
   });
 
-  const [viewData, setViewData] = useState({});
-
   // Load from localStorage
   function loadData() {
     return JSON.parse(localStorage.getItem(LS_KEY) || "[]");
@@ -53,7 +43,6 @@ export default function PathologyReportList() {
 
   // Seed if empty
   useEffect(() => {
-    // keep existing local fallback but prefer server data when available
     const existing = loadData();
     if (existing.length === 0) {
       const sample = [
@@ -87,58 +76,9 @@ export default function PathologyReportList() {
     } else {
       setData(existing);
     }
-    // fetch server reports
-    if (dispatch) dispatch(fetchPathologies());
   }, []);
 
-  const pathologies = useSelector(selectPathologies) || [];
-  const pathologiesStatus = useSelector(selectPathologiesStatus);
-  const pathologiesError = useSelector(selectPathologiesError);
-
-  // when server data arrives, use it (override local data)
-  useEffect(() => {
-    if (pathologiesStatus === "succeeded" && Array.isArray(pathologies)) {
-      // normalize server items to expected table shape if necessary
-      const mapped = pathologies.map((p) => ({
-        id: p.id || p._id || uid(),
-        // prefer explicit server keys: patientName, patientAge, patientContact, doctorName
-        patient:
-          p.patientName ||
-          p.patient ||
-          (p.patientInfo && p.patientInfo.name) ||
-          "",
-        age:
-          p.patientAge || p.age || (p.patientInfo && p.patientInfo.age) || "",
-        phone:
-          p.patientContact ||
-          p.contact ||
-          (p.patientInfo && p.patientInfo.contact) ||
-          "",
-        doctor: p.doctorName || (p.doctor && p.doctor.name) || "",
-        date: p.collectedOn || p.date || "",
-        time: p.collectionTime || p.time || "",
-        status: p.status || p.reportStatus || "Pending",
-        test: Array.isArray(p.testResults)
-          ? p.testResults.map((t) => t.testName).join(", ")
-          : p.test || "",
-        report:
-          p.report || (p.testResults && JSON.stringify(p.testResults)) || "",
-      }));
-      setData(mapped);
-      // also cache to localStorage for offline fallback
-      try {
-        saveData(mapped);
-      } catch (e) {
-        /* ignore */
-        console.warn("Failed to save pathology reports to localStorage:", e);
-      }
-    }
-    if (pathologiesStatus === "failed") {
-      console.error("Failed to load pathologies:", pathologiesError);
-    }
-  }, [pathologiesStatus, pathologies]);
-
-  // Render/Filter Table Data
+  // Filter data
   const filtered = data
     .filter((r) => (filter ? r.status === filter : true))
     .filter((r) =>
@@ -150,6 +90,7 @@ export default function PathologyReportList() {
     )
     .sort((a, b) => new Date(b.date) - new Date(a.date));
 
+  // Badge
   const statusBadge = (s) => {
     if (s === "Completed")
       return <span className="badge text-bg-success">Completed</span>;
@@ -158,51 +99,7 @@ export default function PathologyReportList() {
     return <span className="badge text-bg-warning">Pending</span>;
   };
 
-  // Update status with confirmation
-  const updateStatus = (reportId, newStatus) => {
-    Swal.fire({
-      title: `Mark as ${newStatus}?`,
-      text: `Are you sure you want to mark this report as ${newStatus}?`,
-      icon: "question",
-      showCancelButton: true,
-      confirmButtonColor: "#01C0C8",
-      cancelButtonColor: "#d33",
-      confirmButtonText: `Yes, mark as ${newStatus}`,
-      cancelButtonText: "Cancel",
-    }).then((result) => {
-      if (result.isConfirmed) {
-        // Use API to update status
-        dispatch(updatePathologyStatus({ reportId, status: newStatus }))
-          .unwrap()
-          .then(() => {
-            // Update local state
-            const updated = loadData();
-            const idx = updated.findIndex((x) => x.id === reportId);
-            if (idx >= 0) {
-              updated[idx].status = newStatus;
-              saveData(updated);
-              setData(updated);
-            }
-            Swal.fire({
-              icon: "success",
-              title: "Updated!",
-              text: `Report marked as ${newStatus}`,
-              timer: 1500,
-              showConfirmButton: false,
-            });
-          })
-          .catch((err) => {
-            Swal.fire({
-              icon: "error",
-              title: "Failed to update",
-              text: err?.message || "Could not update status",
-            });
-          });
-      }
-    });
-  };
-
-  // Edit / Add Save
+  // Save report
   const saveReport = (e) => {
     e.preventDefault();
 
@@ -221,80 +118,174 @@ export default function PathologyReportList() {
     setShowEdit(false);
   };
 
-  // Delete
-  const confirmDelete = (reportId) => {
-    Swal.fire({
-      title: "Delete report?",
-      text: "This will remove the report. This action cannot be undone.",
-      icon: "warning",
-      showCancelButton: true,
-      confirmButtonColor: "#d33",
-      cancelButtonColor: "#6c757d",
-      confirmButtonText: "Yes, delete it",
-      cancelButtonText: "Cancel",
-    }).then((result) => {
-      if (!result.isConfirmed) return;
-      // attempt server delete, fallback to client-side removal
-      dispatch(deletePathology(reportId))
-        .unwrap()
-        .then(() => {
-          // remove from local cache and UI
-          try {
-            const updated = loadData().filter(
-              (x) => String(x.id) !== String(reportId)
-            );
-            saveData(updated);
-            setData(updated);
-          } catch (e) {
-            console.warn("Failed to update localStorage after delete:", e);
-          }
-          Swal.fire({
-            icon: "success",
-            title: "Deleted",
-            text: "Report deleted successfully",
-            timer: 1200,
-            showConfirmButton: false,
-          });
-        })
-        .catch((err) => {
-          // show error and still attempt client-side removal for offline items
-          Swal.fire({
-            icon: "error",
-            title: "Failed to delete",
-            text: err?.message || "Could not delete report on server",
-          }).then(() => {
-            try {
-              const updated = loadData().filter(
-                (x) => String(x.id) !== String(reportId)
-              );
-              saveData(updated);
-              setData(updated);
-            } catch (e) {
-              console.warn(
-                "Failed to update localStorage after delete fallback:",
-                e
-              );
-            }
-          });
-        });
-    });
+  // Delete report
+  const confirmDelete = () => {
+    const updated = loadData().filter((x) => x.id !== deleteId);
+    saveData(updated);
+    setData(updated);
+    setShowDelete(false);
+  };
+
+  // PRINT REPORT
+  const printReport = () => {
+    if (!selectedReport) return;
+
+    const printWindow = window.open("", "_blank", "width=900,height=650");
+
+    if (!printWindow) {
+      alert("Enable pop-ups to print");
+      return;
+    }
+
+    const printContent = `
+      <html>
+      <head>
+      <title>Pathology Report</title>
+      <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.2/dist/css/bootstrap.min.css" rel="stylesheet">
+     <style>
+    body {
+      background: #fff;
+      padding: 20px;
+      font-family: Arial, sans-serif;
+      color: #000;
+    }
+
+    .report-box {
+      border: 2px solid #000;
+      padding: 25px;
+      width: 100%;
+      max-width: 100%;
+      margin: auto;
+      background: white;
+    }
+
+    .header-area {
+      text-align: center;
+      border-bottom: 2px solid #000;
+      padding-bottom: 15px;
+      margin-bottom: 20px;
+    }
+
+    .header-area img {
+      height: 70px;
+      margin-bottom: 10px;
+    }
+
+    .hospital-name {
+      font-size: 24px;
+      font-weight: bold;
+      letter-spacing: 1px;
+      text-transform: uppercase;
+      color: #01C0C8;
+    }
+
+    .dept {
+      font-size: 14px;
+      color: #444;
+      margin-top: -5px;
+    }
+
+    .section-title {
+      font-size: 18px;
+      font-weight: bold;
+      border-left: 4px solid #01C0C8;
+      padding-left: 10px;
+      margin: 25px 0 10px 0;
+    }
+
+    .info-grid {
+      display: grid;
+      grid-template-columns: 160px auto;
+      row-gap: 6px;
+      font-size: 14px;
+    }
+
+    .info-label {
+      font-weight: bold;
+    }
+
+    pre {
+      margin-top: 10px;
+      padding: 12px;
+      background: #f5f5f5;
+      border: 1px solid #ccc;
+      border-radius: 6px;
+      white-space: pre-wrap;
+      font-size: 14px;
+    }
+
+    @media print {
+      body {
+        padding: 0;
+      }
+      .report-box {
+        border: none;
+        padding: 0;
+      }
+    }
+  </style>
+</head>
+
+<body>
+
+  <div class="report-box">
+
+    <div class="header-area">
+      <img src="/assets/images/harishchandra-logo-mini.png" alt="Hospital Logo">
+      <div class="hospital-name">
+        Harishchandra Multispeciality Hospital
+      </div>
+      <div class="dept">Department of Pathology</div>
+    </div>
+     <h3>Pathology Report</h3>
+    <div class="section-title">Patient Information</div>
+
+        
+        <p><b>Patient:</b> ${selectedReport.patient}</p>
+        <p><b>Age:</b> ${selectedReport.age}</p>
+        <p><b>Phone:</b> ${selectedReport.phone}</p>
+        <p><b>Doctor:</b> ${selectedReport.doctor}</p>
+        
+    <div class="section-title">Scan Details</div>
+
+    <div class="dept">
+        <p><b>Date:</b> ${selectedReport.date}</p>
+        <p><b>Time:</b> ${selectedReport.time}</p>
+        <p><b>Test:</b> ${selectedReport.test}</p>
+        </div>
+        <hr>
+        <b>Findings:</b>
+        <pre>${selectedReport.report}</pre>
+      </body>
+      </html>
+    `;
+
+    printWindow.document.write(printContent);
+    printWindow.document.close();
+
+    printWindow.onload = () => {
+      setTimeout(() => {
+        printWindow.print();
+        printWindow.close();
+      }, 300);
+    };
   };
 
   return (
     <>
-      {/* Page Card */}
-      <div className="full-width-card card shadow-sm">
+      {/* ---------------- TABLE ---------------- */}
+      <div className="card shadow-sm">
         <div
-          className="card-header text-white fw-semibold fs-5 text-center"
+          className="card-header text-white"
           style={{ background: "#01C0C8" }}
         >
-          <i className="bi bi-hospital me-2"></i> Pathology Report List
+          Pathology Report List
         </div>
 
         <div className="card-body">
-          {/* Search Row */}
-          <div className="row g-2 mb-3 align-items-center">
-            <div className="col-md-4 col-sm-8">
+          {/* Search + Filters */}
+          <div className="row g-2 mb-3">
+            <div className="col-md-4">
               <input
                 type="search"
                 className="form-control form-control-sm"
@@ -304,63 +295,27 @@ export default function PathologyReportList() {
               />
             </div>
 
-            <div className="col-md-3 col-sm-4">
+            <div className="col-md-3">
               <select
                 className="form-select form-select-sm"
                 value={filter}
                 onChange={(e) => setFilter(e.target.value)}
               >
-                <option value="">All status</option>
+                <option value="">All Status</option>
+                <option value="Pending">Pending</option>
                 <option value="Completed">Completed</option>
                 <option value="Delivered">Delivered</option>
               </select>
             </div>
 
             <div className="col-md-5 text-end">
-              <span
-                className="fw-semibold"
-                style={{ fontSize: "17px", color: "#01A3A4" }}
-              >
-                Total: {filtered.length}
-              </span>
+              <b>Total: {filtered.length}</b>
             </div>
           </div>
 
-          {/* Show error banner when server fetch fails */}
-          {pathologiesStatus === "failed" && (
-            <div className="alert alert-danger small d-flex justify-content-between align-items-center">
-              <div>
-                Failed to load reports.{" "}
-                {pathologiesError?.message || "Unauthorized or server error."}
-              </div>
-              <div className="d-flex gap-2">
-                <button
-                  className="btn btn-sm btn-outline-light"
-                  onClick={() => dispatch(fetchPathologies())}
-                >
-                  Retry
-                </button>
-                <button
-                  className="btn btn-sm btn-light"
-                  onClick={() => {
-                    // clear token and navigate to login so user can re-authenticate
-                    try {
-                      localStorage.removeItem("jwtToken");
-                    } catch (e) {
-                      console.warn("Failed to remove token:", e);
-                    }
-                    window.location.href = "/";
-                  }}
-                >
-                  Login
-                </button>
-              </div>
-            </div>
-          )}
-
           {/* Table */}
           <div className="table-responsive">
-            <table className="table table-bordered table-sm align-middle">
+            <table className="table table-bordered table-sm">
               <thead className="table-light text-center">
                 <tr>
                   <th>Patient</th>
@@ -370,14 +325,14 @@ export default function PathologyReportList() {
                   <th>Date</th>
                   <th>Test</th>
                   <th>Status</th>
-                  <th style={{ minWidth: 130 }}>Actions</th>
+                  <th>Actions</th>
                 </tr>
               </thead>
 
               <tbody>
                 {filtered.length === 0 && (
                   <tr>
-                    <td colSpan="8" className="text-center text-muted small">
+                    <td colSpan="8" className="text-center small text-muted">
                       No reports found
                     </td>
                   </tr>
@@ -391,47 +346,37 @@ export default function PathologyReportList() {
                     <td>{r.doctor}</td>
                     <td>{r.date}</td>
                     <td>{r.test}</td>
-                    <td>
-                      <select
-                        className="form-select form-select-sm"
-                        value={r.status}
-                        onChange={(e) => updateStatus(r.id, e.target.value)}
-                        style={{
-                          width: "auto",
-                          display: "inline-block",
-                          fontSize: "12px",
-                        }}
-                      >
-                        <option value="COMPLETED">Completed</option>
-                        <option value="DELIVERED">Delivered</option>
-                      </select>
-                    </td>
+                    <td>{statusBadge(r.status)}</td>
                     <td>
                       <div className="d-flex justify-content-center gap-1">
                         <button
                           className="btn btn-outline-primary btn-sm"
                           onClick={() => {
-                            setViewData(r);
+                            setSelectedReport(r);
                             setShowView(true);
                           }}
                         >
-                          <i className="bi bi-eye" />
+                          <i className="bi bi-eye"></i>
                         </button>
-                        <NavLink
-                          to={`/dashboard/edit-pathology-report/${r.id}`}
+
+                        <button
                           className="btn btn-outline-warning btn-sm"
                           onClick={() => {
                             setForm(r);
                             setShowEdit(true);
                           }}
                         >
-                          <i className="bi bi-pencil" />
-                        </NavLink>
+                          <i className="bi bi-pencil"></i>
+                        </button>
+
                         <button
                           className="btn btn-outline-danger btn-sm"
-                          onClick={() => confirmDelete(r.id)}
+                          onClick={() => {
+                            setDeleteId(r.id);
+                            setShowDelete(true);
+                          }}
                         >
-                          <i className="bi bi-trash" />
+                          <i className="bi bi-trash"></i>
                         </button>
                       </div>
                     </td>
@@ -443,174 +388,20 @@ export default function PathologyReportList() {
         </div>
       </div>
 
-      {/* Add / Edit Modal */}
-      {showEdit && (
+      {/* ---------------- VIEW MODAL ---------------- */}
+      {showView && selectedReport && (
         <div
           className="modal fade show d-block"
-          style={{ background: "#00000070" }}
+          style={{ background: "#00000080" }}
         >
           <div className="modal-dialog modal-lg">
-            <form className="modal-content" onSubmit={saveReport}>
+            <div className="modal-content">
               <div
                 className="modal-header text-white"
-                style={{ background: "linear-gradient(90deg,#00b4b4,#018a8a)" }}
+                style={{ background: "#01C0C8" }}
               >
-                <h5 className="modal-title">
-                  {form.id ? "Edit" : "Add"} Pathology Report
-                </h5>
+                <h5>Pathology Report Details</h5>
                 <button
-                  type="button"
-                  className="btn-close"
-                  onClick={() => setShowEdit(false)}
-                ></button>
-              </div>
-
-              <div className="modal-body">
-                <div className="row g-3">
-                  <div className="col-md-6">
-                    <label className="form-label">Patient Name</label>
-                    <input
-                      className="form-control form-control-sm"
-                      value={form.patient}
-                      onChange={(e) =>
-                        setForm({ ...form, patient: e.target.value })
-                      }
-                      required
-                    />
-                  </div>
-
-                  <div className="col-md-3">
-                    <label className="form-label">Age</label>
-                    <input
-                      type="number"
-                      className="form-control form-control-sm"
-                      value={form.age}
-                      onChange={(e) =>
-                        setForm({ ...form, age: e.target.value })
-                      }
-                    />
-                  </div>
-
-                  <div className="col-md-3">
-                    <label className="form-label">Phone</label>
-                    <input
-                      className="form-control form-control-sm"
-                      value={form.phone}
-                      onChange={(e) =>
-                        setForm({ ...form, phone: e.target.value })
-                      }
-                    />
-                  </div>
-
-                  <div className="col-md-6">
-                    <label className="form-label">Referred Doctor</label>
-                    <input
-                      className="form-control form-control-sm"
-                      value={form.doctor}
-                      onChange={(e) =>
-                        setForm({ ...form, doctor: e.target.value })
-                      }
-                    />
-                  </div>
-
-                  <div className="col-md-3">
-                    <label className="form-label">Report Date</label>
-                    <input
-                      type="date"
-                      className="form-control form-control-sm"
-                      value={form.date}
-                      onChange={(e) =>
-                        setForm({ ...form, date: e.target.value })
-                      }
-                    />
-                  </div>
-
-                  <div className="col-md-3">
-                    <label className="form-label">Sample Time</label>
-                    <input
-                      className="form-control form-control-sm"
-                      value={form.time}
-                      onChange={(e) =>
-                        setForm({ ...form, time: e.target.value })
-                      }
-                    />
-                  </div>
-
-                  <div className="col-md-6">
-                    <label className="form-label">Test / Investigation</label>
-                    <input
-                      className="form-control form-control-sm"
-                      value={form.test}
-                      onChange={(e) =>
-                        setForm({ ...form, test: e.target.value })
-                      }
-                    />
-                  </div>
-
-                  <div className="col-md-6">
-                    <label className="form-label">Status</label>
-                    <div className="d-flex gap-3">
-                      {["Pending", "Completed", "Delivered"].map((s) => (
-                        <label className="form-check" key={s}>
-                          <input
-                            type="radio"
-                            className="form-check-input"
-                            checked={form.status === s}
-                            onChange={() => setForm({ ...form, status: s })}
-                          />{" "}
-                          {s}
-                        </label>
-                      ))}
-                    </div>
-                  </div>
-
-                  <div className="col-12">
-                    <label className="form-label">Report Findings</label>
-                    <textarea
-                      rows={5}
-                      className="form-control form-control-sm"
-                      value={form.report}
-                      onChange={(e) =>
-                        setForm({ ...form, report: e.target.value })
-                      }
-                    />
-                  </div>
-                </div>
-              </div>
-
-              <div className="modal-footer">
-                <button
-                  type="button"
-                  className="btn btn-outline-secondary btn-sm"
-                  onClick={() => setShowEdit(false)}
-                >
-                  Cancel
-                </button>
-                <button
-                  className="btn btn-sm text-white"
-                  style={{ background: "#01C0C8" }}
-                  type="submit"
-                >
-                  <i className="bi bi-save me-1" /> Save Report
-                </button>
-              </div>
-            </form>
-          </div>
-        </div>
-      )}
-
-      {/* View Modal */}
-      {showView && (
-        <div
-          className="modal fade show d-block"
-          style={{ background: "#00000070" }}
-        >
-          <div className="modal-dialog modal-lg">
-            <div className="modal-content" id="printArea">
-              <div className="modal-header">
-                <h5 className="modal-title">Pathology Report Details</h5>
-                <button
-                  type="button"
                   className="btn-close"
                   onClick={() => setShowView(false)}
                 ></button>
@@ -618,33 +409,35 @@ export default function PathologyReportList() {
 
               <div className="modal-body small">
                 <p>
-                  <strong>Patient:</strong> {viewData.patient}
+                  <b>Patient:</b> {selectedReport.patient}
                 </p>
                 <p>
-                  <strong>Age:</strong> {viewData.age}
+                  <b>Age:</b> {selectedReport.age}
                 </p>
                 <p>
-                  <strong>Phone:</strong> {viewData.phone}
+                  <b>Phone:</b> {selectedReport.phone}
                 </p>
                 <p>
-                  <strong>Doctor:</strong> {viewData.doctor}
+                  <b>Doctor:</b> {selectedReport.doctor}
                 </p>
                 <p>
-                  <strong>Report Date:</strong> {viewData.date}
+                  <b>Date:</b> {selectedReport.date}
                 </p>
                 <p>
-                  <strong>Sample Time:</strong> {viewData.time}
+                  <b>Time:</b> {selectedReport.time}
                 </p>
                 <p>
-                  <strong>Test:</strong> {viewData.test}
+                  <b>Test:</b> {selectedReport.test}
                 </p>
+
                 <p>
-                  <strong>Status:</strong> {statusBadge(viewData.status)}
+                  <b>Status:</b> {statusBadge(selectedReport.status)}
                 </p>
+
                 <hr />
-                <strong>Findings:</strong>
-                <pre className="mt-2" style={{ whiteSpace: "pre-wrap" }}>
-                  {viewData.report}
+                <b>Findings:</b>
+                <pre style={{ whiteSpace: "pre-wrap" }}>
+                  {selectedReport.report}
                 </pre>
               </div>
 
@@ -655,12 +448,13 @@ export default function PathologyReportList() {
                 >
                   Close
                 </button>
+
                 <button
                   className="btn btn-sm text-white"
                   style={{ background: "#01C0C8" }}
-                  onClick={() => window.print()}
+                  onClick={printReport}
                 >
-                  Print
+                  <i className="bi bi-printer me-1"></i> Print
                 </button>
               </div>
             </div>
@@ -668,7 +462,38 @@ export default function PathologyReportList() {
         </div>
       )}
 
-      {/* Delete handled via SweetAlert confirmation (no modal) */}
+      {/* ---------------- DELETE MODAL ---------------- */}
+      {showDelete && (
+        <div
+          className="modal fade show d-block"
+          style={{ background: "#00000070" }}
+        >
+          <div className="modal-dialog">
+            <div className="modal-content">
+              <div className="modal-header">
+                <h5>Delete Report?</h5>
+              </div>
+              <div className="modal-body small">
+                Are you sure you want to delete this report?
+              </div>
+              <div className="modal-footer">
+                <button
+                  className="btn btn-secondary btn-sm"
+                  onClick={() => setShowDelete(false)}
+                >
+                  Cancel
+                </button>
+                <button
+                  className="btn btn-danger btn-sm"
+                  onClick={confirmDelete}
+                >
+                  Delete
+                </button>
+              </div>
+            </div>
+          </div>
+        </div>
+      )}
     </>
   );
 }

@@ -18,6 +18,7 @@ const UpdateHelthPackage = () => {
 
   const [fileName, setFileName] = useState("No image chosen");
   const [file, setFile] = useState(null);
+  const [existingImageUrl, setExistingImageUrl] = useState(null);
   const [form, setForm] = useState({
     code: "",
     name: "",
@@ -47,6 +48,13 @@ const UpdateHelthPackage = () => {
           description: pkg.description || "",
           price: pkg.price ?? "",
         });
+
+        // Set existing image if available
+        if (pkg.image || pkg.imageUrl || pkg.icon || pkg.iconUrl) {
+          const imageUrl = pkg.image || pkg.imageUrl || pkg.icon || pkg.iconUrl;
+          setExistingImageUrl(imageUrl);
+          setFileName(imageUrl.split("/").pop() || "Existing icon");
+        }
       }
     };
 
@@ -78,35 +86,20 @@ const UpdateHelthPackage = () => {
       return;
     }
 
-    const dto = {
-      code: form.code.trim(),
-      name: form.name.trim(),
-      description: form.description?.trim() || "",
-      price: form.price === "" ? null : Number(form.price),
-    };
-
     try {
-      let payload = dto;
+      // Always use FormData for consistency with backend
+      const fd = new FormData();
+      fd.append("code", form.code.trim());
+      fd.append("name", form.name.trim());
+      fd.append("description", form.description?.trim() || "");
+      fd.append("price", form.price === "" ? "" : String(form.price));
+
+      // Only append image if a new file is selected
       if (file) {
-        const fd = new FormData();
-        // Append JSON dto (for controllers expecting @RequestPart("dto"))
-        fd.append(
-          "dto",
-          new Blob([JSON.stringify(dto)], { type: "application/json" })
-        );
-        // Also append individual fields as form fields (for controllers expecting @ModelAttribute or form binding)
-        fd.append("code", dto.code ?? "");
-        fd.append("name", dto.name ?? "");
-        fd.append("description", dto.description ?? "");
-        fd.append("price", dto.price == null ? "" : String(dto.price));
-        // Append the file
         fd.append("image", file);
-        payload = fd;
       }
 
-      await dispatch(
-        updateHealthPackage({ id, packageData: payload })
-      ).unwrap();
+      await dispatch(updateHealthPackage({ id, packageData: fd })).unwrap();
 
       await Swal.fire({
         icon: "success",
@@ -216,8 +209,29 @@ const UpdateHelthPackage = () => {
                 className="form-control"
                 id="iconInput"
                 onChange={handleFileChange}
+                accept="image/*"
               />
-              <span className="mt-1 text-muted">{fileName}</span>
+              <div className="mt-2">
+                {file ? (
+                  <span className="text-muted">{fileName}</span>
+                ) : existingImageUrl ? (
+                  <div className="d-flex align-items-center gap-2">
+                    <img
+                      src={existingImageUrl}
+                      alt="Package icon"
+                      style={{
+                        width: "50px",
+                        height: "50px",
+                        objectFit: "cover",
+                        borderRadius: "4px",
+                        border: "1px solid #dee2e6",
+                      }}
+                    />
+                  </div>
+                ) : (
+                  <span className="text-muted">{fileName}</span>
+                )}
+              </div>
             </div>
           </div>
         </div>
@@ -231,11 +245,11 @@ const UpdateHelthPackage = () => {
           >
             {status === "loading" ? (
               <>
-                <span
+                {/* <span
                   className="spinner-border spinner-border-sm me-2"
                   role="status"
                   aria-hidden="true"
-                ></span>
+                ></span> */}
                 Updating...
               </>
             ) : (
