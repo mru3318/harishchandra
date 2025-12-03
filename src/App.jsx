@@ -1,4 +1,5 @@
 import { createBrowserRouter, RouterProvider } from "react-router-dom";
+import "./App.css";
 import Layout from "./layout/Layout";
 import { RoleProvider } from "./role/RoleContext";
 import GlobalSpinner from "./components/spinner/GlobalSpinner";
@@ -43,7 +44,7 @@ import PharmacyModule from "./components/pharmacy/PharmacyModule";
 import DoctorScheduleList from "./components/doctor-schedule/schedule-list/DoctorScheduleList";
 import EditDoctorSchedule from "./components/doctor-schedule/edit-doctor-schedule/EditDoctorSchedule";
 import AddPathalogyForm from "./components/reports/pathalogy/add-pathalogy-report/AddPathalogyForm";
-import RadiologyForm from "./components/reports/radiology/RadiologyForm";
+import RadiologyForm from "./components/reports/radiology/add-radiology-report/RadiologyForm.jsx";
 import AddPatientAppointment from "./components/appointments/add-appointments/AddPatientAppointment";
 import ViewPatientAppointment from "./components/appointments/view-appointments/ViewPatientAppointment";
 import AddNewPrescription from "./components/prescriptions/add-new-prescription/AddNewPriscription";

@@ -8,14 +8,9 @@ const RadiologyReportList = () => {
   const [statusFilter, setStatusFilter] = useState("");
   const [selectedReport, setSelectedReport] = useState(null);
   const [editReportData, setEditReportData] = useState({});
-  const [patients, setPatients] = useState([]);
-  const [patientQuery, setPatientQuery] = useState("");
-  const [selectedPatient, setSelectedPatient] = useState(null);
-  const [age, setAge] = useState("");
-  const [gender, setGender] = useState("");
   const [deleteId, setDeleteId] = useState(null);
+  const [showEdit, setShowEdit] = useState(false);
 
-  const editModalRef = useRef(null);
   const viewModalRef = useRef(null);
   const deleteModalRef = useRef(null);
 
@@ -65,23 +60,6 @@ const RadiologyReportList = () => {
     setReports(loadData());
   }, [seedIfEmpty]);
 
-  // Fetch patients (names and ids) for autocomplete
-  useEffect(() => {
-    let cancelled = false;
-    fetch("/patients/names-and-ids")
-      .then((res) => res.json())
-      .then((data) => {
-        if (cancelled) return;
-        if (Array.isArray(data)) setPatients(data);
-      })
-      .catch(() => {
-        // ignore fetch errors silently for now
-      });
-    return () => {
-      cancelled = true;
-    };
-  }, []);
-
   const statusBadge = (status) => {
     if (status === "Completed")
       return <span className="badge text-bg-success">Completed</span>;
@@ -102,15 +80,8 @@ const RadiologyReportList = () => {
     .sort((a, b) => new Date(b.date || 0) - new Date(a.date || 0));
 
   const openEditModal = (report) => {
-    setEditReportData(report || {});
-    // set controlled inputs from existing report if editing
-    setPatientQuery((report && report.patient) || "");
-    setAge((report && (report.age || "")) || "");
-    setGender((report && report.gender) || "");
-    setSelectedPatient(
-      report && report.patientId ? { id: report.patientId } : null
-    );
-    new window.bootstrap.Modal(editModalRef.current).show();
+    setEditReportData({ ...report, status: report?.status || "Pending" });
+    setShowEdit(true);
   };
 
   const openViewModal = (report) => {
@@ -128,6 +99,31 @@ const RadiologyReportList = () => {
     saveData(updated);
     setReports(updated);
     window.bootstrap.Modal.getInstance(deleteModalRef.current).hide();
+  };
+
+  const saveReport = (e) => {
+    e.preventDefault();
+
+    if (!editReportData.patient || !editReportData.patient.trim()) {
+      alert("Enter patient name");
+      return;
+    }
+
+    if (editReportData.age && Number(editReportData.age) < 0) {
+      alert("Age must be 0 or more");
+      return;
+    }
+
+    const updated = loadData();
+    const obj = { ...editReportData, id: editReportData.id || uid() };
+
+    const idx = updated.findIndex((x) => x.id === obj.id);
+    if (idx >= 0) updated[idx] = obj;
+    else updated.push(obj);
+
+    saveData(updated);
+    setReports(updated);
+    setShowEdit(false);
   };
 
   const printReport = () => {
@@ -173,7 +169,7 @@ const RadiologyReportList = () => {
       try {
         w.print();
         w.close();
-      } catch (err) {
+      } catch {
         // ignore
       }
     }, 300);
@@ -370,6 +366,207 @@ const RadiologyReportList = () => {
           </div>
         </div>
       </div>
+
+      {/* Add / Edit Modal */}
+      {showEdit && (
+        <div
+          className="modal fade show d-block"
+          style={{ background: "#00000070" }}
+        >
+          <div className="modal-dialog modal-lg">
+            <form className="modal-content" onSubmit={saveReport}>
+              <div
+                className="modal-header text-white"
+                style={{ background: "linear-gradient(90deg,#00b4b4,#018a8a)" }}
+              >
+                <h5 className="modal-title">
+                  {editReportData.id ? "Edit" : "Add"} Radiology Report
+                </h5>
+                <button
+                  type="button"
+                  className="btn-close"
+                  onClick={() => setShowEdit(false)}
+                ></button>
+              </div>
+
+              <div className="modal-body">
+                <div className="row g-3">
+                  <div className="col-md-6">
+                    <label className="form-label">Patient Name</label>
+                    <input
+                      className="form-control form-control-sm"
+                      value={editReportData.patient || ""}
+                      onChange={(e) =>
+                        setEditReportData({
+                          ...editReportData,
+                          patient: e.target.value,
+                        })
+                      }
+                      required
+                    />
+                  </div>
+
+                  <div className="col-md-3">
+                    <label className="form-label">Age</label>
+                    <input
+                      type="number"
+                      className="form-control form-control-sm"
+                      value={editReportData.age || ""}
+                      onChange={(e) =>
+                        setEditReportData({
+                          ...editReportData,
+                          age: e.target.value,
+                        })
+                      }
+                    />
+                  </div>
+
+                  <div className="col-md-3">
+                    <label className="form-label">Gender</label>
+                    <select
+                      className="form-control form-control-sm"
+                      value={editReportData.gender || ""}
+                      onChange={(e) =>
+                        setEditReportData({
+                          ...editReportData,
+                          gender: e.target.value,
+                        })
+                      }
+                    >
+                      <option value="">Select</option>
+                      <option value="Male">Male</option>
+                      <option value="Female">Female</option>
+                      <option value="Other">Other</option>
+                    </select>
+                  </div>
+
+                  <div className="col-md-6">
+                    <label className="form-label">Phone</label>
+                    <input
+                      className="form-control form-control-sm"
+                      value={editReportData.phone || ""}
+                      onChange={(e) =>
+                        setEditReportData({
+                          ...editReportData,
+                          phone: e.target.value,
+                        })
+                      }
+                    />
+                  </div>
+
+                  <div className="col-md-6">
+                    <label className="form-label">Referred Doctor</label>
+                    <input
+                      className="form-control form-control-sm"
+                      value={editReportData.doctor || ""}
+                      onChange={(e) =>
+                        setEditReportData({
+                          ...editReportData,
+                          doctor: e.target.value,
+                        })
+                      }
+                    />
+                  </div>
+
+                  <div className="col-md-3">
+                    <label className="form-label">Report Date</label>
+                    <input
+                      type="date"
+                      className="form-control form-control-sm"
+                      value={editReportData.date || ""}
+                      onChange={(e) =>
+                        setEditReportData({
+                          ...editReportData,
+                          date: e.target.value,
+                        })
+                      }
+                    />
+                  </div>
+
+                  <div className="col-md-3">
+                    <label className="form-label">Scan Time</label>
+                    <input
+                      className="form-control form-control-sm"
+                      value={editReportData.time || ""}
+                      onChange={(e) =>
+                        setEditReportData({
+                          ...editReportData,
+                          time: e.target.value,
+                        })
+                      }
+                    />
+                  </div>
+
+                  <div className="col-md-6">
+                    <label className="form-label">Scan Type</label>
+                    <input
+                      className="form-control form-control-sm"
+                      value={editReportData.test || ""}
+                      onChange={(e) =>
+                        setEditReportData({
+                          ...editReportData,
+                          test: e.target.value,
+                        })
+                      }
+                    />
+                  </div>
+
+                  <div className="col-md-6">
+                    <label className="form-label">Status</label>
+                    <select
+                      className="form-select form-select-sm"
+                      value={editReportData.status || ""}
+                      onChange={(e) =>
+                        setEditReportData({
+                          ...editReportData,
+                          status: e.target.value,
+                        })
+                      }
+                    >
+                      <option value="">Select Status</option>
+                      <option value="Pending">Pending</option>
+                      <option value="Completed">Completed</option>
+                      <option value="Delivered">Delivered</option>
+                    </select>
+                  </div>
+
+                  <div className="col-12">
+                    <label className="form-label">Report Findings</label>
+                    <textarea
+                      rows={5}
+                      className="form-control form-control-sm"
+                      value={editReportData.report || ""}
+                      onChange={(e) =>
+                        setEditReportData({
+                          ...editReportData,
+                          report: e.target.value,
+                        })
+                      }
+                    />
+                  </div>
+                </div>
+              </div>
+
+              <div className="modal-footer">
+                <button
+                  type="button"
+                  className="btn btn-outline-secondary btn-sm"
+                  onClick={() => setShowEdit(false)}
+                >
+                  Cancel
+                </button>
+                <button
+                  className="btn btn-sm text-white"
+                  style={{ background: "#01C0C8" }}
+                  type="submit"
+                >
+                  <i className="bi bi-save me-1" /> Save Report
+                </button>
+              </div>
+            </form>
+          </div>
+        </div>
+      )}
     </>
   );
 };
