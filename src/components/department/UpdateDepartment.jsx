@@ -190,7 +190,12 @@ const UpdateDepartment = () => {
                 type="text"
                 name="department_name"
                 value={department.department_name}
-                onChange={handleChange}
+                onChange={(e) => {
+                  const onlyText = e.target.value.replace(/[^A-Za-z ]/g, "");
+                  handleChange({
+                    target: { name: "department_name", value: onlyText },
+                  });
+                }}
                 className="form-control"
                 placeholder="Enter department name"
                 required
@@ -206,7 +211,18 @@ const UpdateDepartment = () => {
                 type="text"
                 name="department_head"
                 value={department.department_head}
-                onChange={handleChange}
+                onChange={(e) => {
+                  const filteredValue = e.target.value.replace(
+                    /[^A-Za-z ]/g,
+                    ""
+                  );
+                  handleChange({
+                    target: {
+                      name: "department_head",
+                      value: filteredValue,
+                    },
+                  });
+                }}
                 className="form-control"
                 placeholder="Enter department head"
                 required

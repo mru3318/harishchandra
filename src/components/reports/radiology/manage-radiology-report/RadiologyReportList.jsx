@@ -7,6 +7,7 @@ import {
   selectRadiologiesStatus,
   selectRadiologiesError,
 } from "../../../../features/radiologySlice";
+import { NavLink } from "react-router-dom";
 
 const LS_KEY = "hms_radiology_reports";
 
@@ -70,10 +71,38 @@ const RadiologyReportList = () => {
           gender: r.patientGender || "",
           phone: r.patientContact || "",
           doctor: r.doctorName || "",
-          date: r.createdAt
-            ? new Date(r.createdAt).toISOString().split("T")[0]
-            : "",
-          time: r.createdAt ? new Date(r.createdAt).toLocaleTimeString() : "",
+          // Derive date/time: prefer backend `reportDate` and `imagingTime`, fall back to createdAt
+          date: (() => {
+            const rd =
+              r.reportDate || r.reportdate || r.date || r.createdAt || "";
+            if (!rd) return "";
+            if (typeof rd === "string" && rd.includes("T"))
+              return rd.split("T")[0];
+            if (typeof rd === "string" && /^\d{4}-\d{2}-\d{2}$/.test(rd))
+              return rd;
+            try {
+              return new Date(rd).toISOString().split("T")[0];
+            } catch (e) {
+              return "";
+            }
+          })(),
+          // keep raw reportDate available too
+          reportDate:
+            r.reportDate ||
+            r.reportdate ||
+            r.date ||
+            (r.createdAt ? new Date(r.createdAt).toISOString() : ""),
+          time: (() => {
+            const it = r.imagingTime || r.imagingtime || r.time || "";
+            if (it && typeof it === "string") return it;
+            const rd =
+              r.reportDate || r.reportdate || r.date || r.createdAt || "";
+            if (typeof rd === "string" && rd.includes("T"))
+              return new Date(rd).toLocaleTimeString();
+            return r.createdAt
+              ? new Date(r.createdAt).toLocaleTimeString()
+              : "";
+          })(),
           status: r.reportStatus || "Pending",
           test: r.scanDetails?.[0]?.scanName || "N/A",
           report: r.finalSummary || "",
@@ -123,7 +152,7 @@ const RadiologyReportList = () => {
         new Date(b.date || b.createdAt || 0) -
         new Date(a.date || a.createdAt || 0)
     );
-
+  console.log("Filtered reports:", filteredReports);
   const openEditModal = (report) => {
     setEditReportData({ ...report, status: report?.status || "Pending" });
     setShowEdit(true);
@@ -135,6 +164,9 @@ const RadiologyReportList = () => {
   };
 
   const openViewImageScanModal = (scanData) => {
+    console.log("=== openViewImageScanModal called ===");
+    console.log("Raw scanData:", scanData);
+
     // Normalize scan data to array of file URLs
     let files = [];
 
@@ -161,17 +193,20 @@ const RadiologyReportList = () => {
               ? s.scanFile
               : s.scanFile.url || s.scanFile.path;
           return {
-            url: scanFile,
-            name: s.scanName || s.name || scanFile.split("/").pop(),
+            url: scanFile || placeholderSVG,
+            name:
+              s.scanName ||
+              s.name ||
+              (scanFile ? scanFile.split("/").pop() : "scan-image.jpg"),
           };
         }
         return {
-          url: s.url || s.fileUrl || s.path,
+          url: s.url || s.fileUrl || s.path || placeholderSVG,
           name:
             s.name ||
             s.fileName ||
             s.scanName ||
-            (s.url || s.fileUrl || s.path || "").split("/").pop(),
+            (s.url || s.fileUrl || s.path || "scan-image.jpg").split("/").pop(),
         };
       });
     } else if (typeof scanData === "object") {
@@ -215,6 +250,7 @@ const RadiologyReportList = () => {
       ];
     }
 
+    console.log("Processed files array:", files);
     setSelectedScan(files);
     new window.bootstrap.Modal(scanModalRef.current).show();
   };
@@ -633,12 +669,13 @@ const RadiologyReportList = () => {
                             >
                               <i className="fa-regular fa-eye"></i>
                             </button>
-                            <button
+                            <NavLink
+                              to={`/dashboard/edit-radiology-report/${r.id}`}
                               className="btn btn-outline-warning btn-sm"
                               onClick={() => openEditModal(r)}
                             >
                               <i className="fa-solid fa-pen"></i>
-                            </button>
+                            </NavLink>
                             <button
                               className="btn btn-outline-danger btn-sm"
                               onClick={() => openDeleteModal(r.id)}
@@ -703,42 +740,6 @@ const RadiologyReportList = () => {
                   <pre style={{ whiteSpace: "pre-wrap" }}>
                     {selectedReport.report}
                   </pre>
-                  {/* Files / attachments */}
-                  {(() => {
-                    const files = gatherFilesFromReport(selectedReport);
-                    if (!files.length) return null;
-                    return (
-                      <div className="mt-3">
-                        <strong>Attachments:</strong>
-                        <ul className="list-unstyled small mt-2">
-                          {files.map((f, i) => (
-                            <li
-                              key={i}
-                              className="mb-1 d-flex align-items-center gap-2"
-                            >
-                              <span
-                                style={{
-                                  maxWidth: 300,
-                                  overflow: "hidden",
-                                  textOverflow: "ellipsis",
-                                  display: "inline-block",
-                                }}
-                              >
-                                {f.name}
-                              </span>
-                              <button
-                                className="btn btn-sm btn-outline-primary"
-                                onClick={() => downloadFile(f.url, f.name)}
-                              >
-                                <i className="fa-solid fa-download me-1"></i>{" "}
-                                Download
-                              </button>
-                            </li>
-                          ))}
-                        </ul>
-                      </div>
-                    );
-                  })()}
                 </div>
               )}
             </div>
@@ -750,18 +751,7 @@ const RadiologyReportList = () => {
               >
                 Close
               </button>
-              {selectedReport &&
-                gatherFilesFromReport(selectedReport).length > 0 && (
-                  <button
-                    className="btn btn-outline-primary btn-sm"
-                    onClick={() => {
-                      const files = gatherFilesFromReport(selectedReport);
-                      files.forEach((f) => downloadFile(f.url, f.name));
-                    }}
-                  >
-                    <i className="fa-solid fa-download me-1"></i> Download All
-                  </button>
-                )}
+
               <button
                 className="btn btn-sm text-white"
                 style={{ background: "#01C0C8" }}
@@ -818,33 +808,80 @@ const RadiologyReportList = () => {
               {selectedScan && selectedScan.length > 0 ? (
                 <div className="row g-3">
                   {selectedScan.map((file, idx) => {
-                    const isImage = /\.(jpg|jpeg|png|gif|bmp|webp|svg)$/i.test(
-                      file.name || file.url
+                    console.log(`File ${idx}:`, file);
+                    console.log(`  - URL: ${file.url}`);
+                    console.log(`  - Name: ${file.name}`);
+
+                    // Fix base64 image data - add data URI prefix if missing
+                    let imageUrl = file.url;
+                    if (
+                      imageUrl &&
+                      !imageUrl.startsWith("data:") &&
+                      !imageUrl.startsWith("http")
+                    ) {
+                      // It's base64 data without prefix, add it
+                      imageUrl = `data:image/jpeg;base64,${imageUrl}`;
+                      console.log(`  - Fixed URL with data URI prefix`);
+                    }
+
+                    // Check if it's an image - be more lenient
+                    const hasImageExtension =
+                      /\.(jpg|jpeg|png|gif|bmp|webp|svg)$/i.test(
+                        file.name || file.url || ""
+                      );
+                    const isDataUri = imageUrl && imageUrl.startsWith("data:");
+                    const shouldDisplayAsImage =
+                      hasImageExtension || isDataUri || true; // Always try to display as image first
+
+                    console.log(`  - hasImageExtension: ${hasImageExtension}`);
+                    console.log(`  - isDataUri: ${isDataUri}`);
+                    console.log(
+                      `  - shouldDisplayAsImage: ${shouldDisplayAsImage}`
                     );
+
                     return (
                       <div key={idx} className="col-12">
-                        {isImage ? (
+                        <div>
                           <img
-                            src={file.url}
-                            alt={file.name}
+                            src={imageUrl}
+                            alt={file.name || "Scan image"}
                             className="img-fluid rounded shadow-sm"
                             style={{
                               maxWidth: "100%",
                               maxHeight: "500px",
                               objectFit: "contain",
+                              display: "block",
+                              margin: "0 auto",
+                              border: "1px solid #dee2e6",
+                            }}
+                            onLoad={() => {
+                              console.log(
+                                "✓ Image loaded successfully:",
+                                file.name
+                              );
                             }}
                             onError={(e) => {
+                              console.error(
+                                "✗ Failed to load image:",
+                                file.name
+                              );
                               e.target.style.display = "none";
-                              e.target.nextSibling.style.display = "block";
+                              const fallbackDiv = e.target.nextSibling;
+                              if (fallbackDiv)
+                                fallbackDiv.style.display = "block";
                             }}
                           />
-                        ) : null}
-                        <div
-                          style={{ display: isImage ? "none" : "block" }}
-                          className="alert alert-info"
-                        >
-                          <i className="fa-solid fa-file me-2"></i>
-                          {file.name}
+                          <div
+                            style={{ display: "none" }}
+                            className="alert alert-info mt-2"
+                          >
+                            <i className="fa-solid fa-file me-2"></i>
+                            {file.name}
+                            <br />
+                            <small className="text-muted">
+                              URL: {imageUrl.substring(0, 100)}...
+                            </small>
+                          </div>
                         </div>
                       </div>
                     );
@@ -861,8 +898,51 @@ const RadiologyReportList = () => {
                 <button
                   className="btn btn-primary"
                   onClick={() => {
-                    selectedScan.forEach((file) => {
-                      downloadFile(file.url, file.name);
+                    selectedScan.forEach((file, idx) => {
+                      // Fix base64 data if needed
+                      let imageUrl = file.url;
+                      if (
+                        imageUrl &&
+                        !imageUrl.startsWith("data:") &&
+                        !imageUrl.startsWith("http")
+                      ) {
+                        imageUrl = `data:image/jpeg;base64,${imageUrl}`;
+                      }
+
+                      // For data URIs, create blob and download
+                      if (imageUrl && imageUrl.startsWith("data:")) {
+                        try {
+                          // Convert data URI to blob
+                          const arr = imageUrl.split(",");
+                          const mime = arr[0].match(/:(.*?);/)[1];
+                          const bstr = atob(arr[1]);
+                          let n = bstr.length;
+                          const u8arr = new Uint8Array(n);
+                          while (n--) {
+                            u8arr[n] = bstr.charCodeAt(n);
+                          }
+                          const blob = new Blob([u8arr], { type: mime });
+                          const url = window.URL.createObjectURL(blob);
+
+                          // Download
+                          const a = document.createElement("a");
+                          a.href = url;
+                          a.download = file.name || `scan_${idx + 1}.jpg`;
+                          document.body.appendChild(a);
+                          a.click();
+                          document.body.removeChild(a);
+                          window.URL.revokeObjectURL(url);
+                        } catch (err) {
+                          console.error(
+                            "Failed to download base64 image:",
+                            err
+                          );
+                          alert(`Failed to download ${file.name}`);
+                        }
+                      } else {
+                        // For regular URLs, use the existing downloadFile function
+                        downloadFile(imageUrl, file.name);
+                      }
                     });
                   }}
                 >

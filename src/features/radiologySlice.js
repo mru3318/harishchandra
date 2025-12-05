@@ -76,6 +76,38 @@ export const createRadiology = createAsyncThunk(
   }
 );
 
+// Update radiology report (PUT /radiology/update/:id)
+export const updateRadiology = createAsyncThunk(
+  "radiology/updateRadiology",
+  async ({ id, payload }, { rejectWithValue }) => {
+    try {
+      const token = getToken();
+      const isFormData =
+        typeof FormData !== "undefined" && payload instanceof FormData;
+      const headers = {};
+      if (!isFormData) headers["Content-Type"] = "application/json";
+      if (token) headers.Authorization = `Bearer ${token}`;
+
+      const res = await axios.put(
+        `${API_BASE_URL}/radiology/update/${id}`,
+        payload,
+        { headers }
+      );
+      return res.data;
+    } catch (err) {
+      const payloadErr = err.response
+        ? {
+            message:
+              err.response.data?.message || err.response.data || err.message,
+            status: err.response.status,
+            url: err.config?.url,
+          }
+        : { message: err.message || "Network error", code: err.code };
+      return rejectWithValue(payloadErr);
+    }
+  }
+);
+
 const initialState = {
   createStatus: "idle",
   createError: null,
@@ -83,6 +115,9 @@ const initialState = {
   technicians: [],
   techniciansStatus: "idle",
   techniciansError: null,
+  updateStatus: "idle",
+  updateError: null,
+  lastUpdated: null,
   radiologies: [],
   radiologiesStatus: "idle",
   radiologiesError: null,
@@ -111,6 +146,34 @@ const radiologySlice = createSlice({
       .addCase(createRadiology.rejected, (state, action) => {
         state.createStatus = "failed";
         state.createError = action.payload || action.error.message;
+      });
+    // update radiology
+    builder
+      .addCase(updateRadiology.pending, (state) => {
+        state.updateStatus = "loading";
+        state.updateError = null;
+      })
+      .addCase(updateRadiology.fulfilled, (state, action) => {
+        state.updateStatus = "succeeded";
+        const updated = action.payload?.data || action.payload || null;
+        state.lastUpdated = updated;
+        // If we have a radiologies array, replace the updated item
+        if (
+          Array.isArray(state.radiologies) &&
+          updated &&
+          (updated.id || updated._id)
+        ) {
+          const updatedId = updated.id || updated._id;
+          state.radiologies = state.radiologies.map((r) =>
+            String(r.id || r._id) === String(updatedId)
+              ? { ...r, ...updated }
+              : r
+          );
+        }
+      })
+      .addCase(updateRadiology.rejected, (state, action) => {
+        state.updateStatus = "failed";
+        state.updateError = action.payload || action.error.message;
       });
     // fetch radiology technicians
     builder
@@ -173,3 +236,11 @@ export const selectRadiologiesStatus = (state) =>
   state.radiology?.radiologiesStatus || "idle";
 export const selectRadiologiesError = (state) =>
   state.radiology?.radiologiesError || null;
+
+// selectors for update
+export const selectUpdateRadiologyStatus = (state) =>
+  state.radiology?.updateStatus || "idle";
+export const selectUpdateRadiologyError = (state) =>
+  state.radiology?.updateError || null;
+export const selectLastUpdatedRadiology = (state) =>
+  state.radiology?.lastUpdated || null;

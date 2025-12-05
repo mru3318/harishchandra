@@ -1,12 +1,15 @@
 import React, { useState, useEffect } from "react";
 import { useDispatch, useSelector } from "react-redux";
-import { useNavigate } from "react-router-dom";
+import { useNavigate, useParams } from "react-router-dom";
 import Swal from "sweetalert2";
 import {
-  createRadiology,
   fetchRadiologyTechnicians,
   selectRadiologyTechnicians,
   selectRadiologyTechniciansStatus,
+  fetchRadiologies,
+  selectRadiologies,
+  selectRadiologiesStatus,
+  updateRadiology,
 } from "../../../../features/radiologySlice";
 import {
   fetchPatients,
@@ -17,7 +20,7 @@ import {
   selectDoctorNameIdsStatus,
 } from "../../../../features/commanSlice";
 
-export default function RadiologyForm() {
+export default function EditRadiologyForm() {
   const [tests, setTests] = useState([
     { name: "", findings: "", cost: 0, idProof: null },
   ]);
@@ -38,7 +41,7 @@ export default function RadiologyForm() {
     radiologyPerformedById: "",
     radiologyPerformedByName: "",
     finalSummary: "",
-    status: "COMPLETED",
+    status: "PENDING",
   });
   const [valid, setValid] = useState({});
   const patients = useSelector(selectPatients) || [];
@@ -143,6 +146,10 @@ export default function RadiologyForm() {
 
   const dispatch = useDispatch();
   const navigate = useNavigate();
+  const { id: routeId } = useParams();
+
+  const allRadiologies = useSelector(selectRadiologies) || [];
+  const allRadiologiesStatus = useSelector(selectRadiologiesStatus);
 
   // Load patients for suggestions
   useEffect(() => {
@@ -152,7 +159,129 @@ export default function RadiologyForm() {
     dispatch(fetchDoctorNameIds());
     // fetch radiology technicians for searchable technician field
     dispatch(fetchRadiologyTechnicians());
+    // ensure radiologies list loaded so we can prefill edit form
+    if (allRadiologiesStatus === "idle") dispatch(fetchRadiologies());
   }, [dispatch, patientsStatus]);
+
+  // When radiologies load or routeId changes, prefill the form for editing
+  useEffect(() => {
+    if (!routeId) return;
+    if (allRadiologiesStatus !== "succeeded") return;
+    const found = (allRadiologies || []).find(
+      (r) => String(r.id || r._id) === String(routeId)
+    );
+    if (!found) return;
+
+    // Map backend fields to local form state
+    console.debug("EditRadiologyForm prefill record:", found);
+    const hospId =
+      // top-level common keys
+      found.patient_hospital_id ||
+      found.patientHospitalId ||
+      found.patient?.patient_hospital_id ||
+      found.patient?.patientHospitalId ||
+      // some APIs put fields under an attributes or data object
+      (found.patient && (found.patient.attributes || {}).patient_hospital_id) ||
+      (found.patient && (found.patient.attributes || {}).patientHospitalId) ||
+      // other possible locations
+      found.patient?.hospitalId ||
+      found.hospitalId ||
+      found.hospitalID ||
+      found.patient?.code ||
+      "";
+    console.debug("Resolved hospId:", hospId);
+    const patientNameVal =
+      found.patientName ||
+      (found.patient &&
+        (found.patient.name ||
+          `${found.patient.firstName || ""} ${
+            found.patient.lastName || ""
+          }`.trim())) ||
+      "";
+    const ageVal = found.patientAge || found.age || found.patient?.age || "";
+    let genderVal =
+      found.patientGender ||
+      found.gender ||
+      found.patient_gender ||
+      found.patient?.gender ||
+      found.patient?.sex ||
+      found.sex ||
+      "";
+    if (genderVal) {
+      const g = String(genderVal).toLowerCase();
+      if (g.startsWith("m")) genderVal = "Male";
+      else if (g.startsWith("f")) genderVal = "Female";
+      else genderVal = "Other";
+    }
+    const contactVal =
+      found.patientContact ||
+      found.contact ||
+      found.phone ||
+      found.patient?.contact ||
+      found.patient?.phone ||
+      "";
+
+    setForm((prev) => ({
+      ...prev,
+      patientName: patientNameVal,
+      age: ageVal,
+      gender: genderVal,
+      contact: contactVal,
+      patientId:
+        found.patientId ||
+        found.patient_id ||
+        found.patient?.id ||
+        found.patient?._id ||
+        prev.patientId,
+      patientHospitalId: hospId || prev.patientHospitalId,
+      doctorId: found.doctorId || found.doctor || prev.doctorId,
+      doctorName: found.doctorName || found.doctor || prev.doctorName,
+      radiologyPerformedById:
+        found.radiologyPerformedById || prev.radiologyPerformedById,
+      radiologyPerformedByName:
+        found.radiologyPerformedByName || prev.radiologyPerformedByName,
+      finalSummary:
+        found.finalSummary ||
+        found.report ||
+        found.final_summary ||
+        prev.finalSummary,
+      status: (
+        found.reportStatus ||
+        found.status ||
+        prev.status ||
+        "PENDING"
+      ).toUpperCase(),
+      reportDate: (() => {
+        const rd =
+          found.reportDate ||
+          found.reportdate ||
+          found.date ||
+          found.createdAt ||
+          "";
+        if (!rd) return "";
+        if (typeof rd === "string" && rd.includes("T")) return rd.split("T")[0];
+        if (typeof rd === "string" && /^\d{4}-\d{2}-\d{2}$/.test(rd)) return rd;
+        try {
+          return new Date(rd).toISOString().split("T")[0];
+        } catch (e) {
+          return "";
+        }
+      })(),
+      imagingTime:
+        found.imagingTime || found.imagingtime || prev.imagingTime || "",
+    }));
+
+    // Prefill tests from scanDetails
+    if (Array.isArray(found.scanDetails) && found.scanDetails.length) {
+      const mappedTests = found.scanDetails.map((s) => ({
+        name: s.scanName || s.name || "",
+        findings: s.findings || s.impression || "",
+        cost: s.cost || 0,
+        idProof: null,
+      }));
+      setTests(mappedTests);
+    }
+  }, [allRadiologiesStatus, allRadiologies, routeId]);
 
   // Update patient suggestions when query or patients change
   useEffect(() => {
@@ -372,9 +501,8 @@ export default function RadiologyForm() {
       patientId: patientId,
       doctorId: doctorId,
       radiologyPerformedById: radiologyPerformedById,
-      // include reportDate so backend stores the selected date
+      // include reportDate and imagingTime
       reportDate: form.reportDate || "",
-      // include imaging time separately (HH:mm)
       imagingTime: form.imagingTime || "",
       finalSummary: form.finalSummary || "",
       // backend expects 'reportStatus' according to provided payload example
@@ -386,7 +514,7 @@ export default function RadiologyForm() {
         cost: parseFloat(Number(t.cost || 0).toFixed(2)) || 0,
       })),
     };
-    console.log("Radiology Report Payload:", reportPayload);
+
     // Build FormData so we can send files + report JSON as multipart/form-data
     const formData = new FormData();
     formData.append("report", JSON.stringify(reportPayload));
@@ -399,20 +527,27 @@ export default function RadiologyForm() {
     });
 
     try {
-      await dispatch(createRadiology(formData)).unwrap();
+      // Dispatch updateRadiology thunk with FormData payload
+      const res = await dispatch(
+        updateRadiology({ id: routeId, payload: formData })
+      ).unwrap();
       Swal.fire({
         icon: "success",
-        title: "Created",
-        text: "Radiology report created.",
+        title: "Updated",
+        text: "Radiology report updated.",
         timer: 1400,
         showConfirmButton: false,
       });
+      // Optionally navigate back to list
       navigate("/dashboard/manage-radiology-reports");
     } catch (err) {
       Swal.fire({
         icon: "error",
         title: "Failed",
-        text: err?.message || "Failed to create radiology report",
+        text:
+          err?.message ||
+          err?.message?.message ||
+          "Failed to update radiology report",
       });
     }
   };
@@ -455,7 +590,7 @@ export default function RadiologyForm() {
           className="p-3 mb-3 text-white text-center"
           style={{ background: "#01C0C8", margin: "-32px" }}
         >
-          <h3 className="mb-0">HMS Radiology & Diagnostics</h3>
+          <h3 className="mb-0">Update HMS Radiology & Diagnostics</h3>
         </div>
 
         {/* Patient Information */}
@@ -681,6 +816,7 @@ export default function RadiologyForm() {
                       onChange={handleFormChange}
                       required
                     >
+                      <option value="PENDING">Pending</option>
                       <option value="COMPLETED">Completed</option>
                       <option value="CANCELLED">Cancelled</option>
                     </select>
@@ -844,7 +980,7 @@ export default function RadiologyForm() {
             style={{ background: "#01C0C8" }}
             onClick={saveData}
           >
-            Save
+            Update Report
           </button>
         </div>
       </div>
